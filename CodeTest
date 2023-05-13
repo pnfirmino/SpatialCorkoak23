@@ -1,81 +1,84 @@
-Dados_SpatialCorkOak_9_maio_l23 <- read_excel("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2023-Doutoramento/SpatialCorkoak/Dados_SpatialCorkOak_9_maio_l23.xlsx")
-Dados_SpatialCorkOak1<-Dados_SpatialCorkOak_9_maio_l23
-Dados_SpatialCorkOak1A<-Dados_SpatialCorkOak1[which(Dados_SpatialCorkOak1$Site == "A"),]
-Dados_SpatialCorkOak1A<-Dados_SpatialCorkOak1A[which(Dados_SpatialCorkOak1A$mais_velha == 0),]
+library(sf)
+library(spdep)
+library(whitebox)
+library(car)
 
-#Geographical position indices calculation (TPI and TRI)
+###Section 1 - Data preparation and variable calculation
+#Upload and prepare data file
+Dados_SpatialCorkOak_9_maio_l23 <- read_excel("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2023-Doutoramento/SpatialCorkoak/Dados_SpatialCorkOak_9_maio_l23.xlsx")
+Dados_SpatialCorkOak1A<-Dados_SpatialCorkOak1[which(Dados_SpatialCorkOak1$Site == "A"),] ## Select on of the 4 properties (A, B, C, D)
+Dados_SpatialCorkOak1A<-Dados_SpatialCorkOak1A[which(Dados_SpatialCorkOak1A$mais_velha == 0),]  ##Remove clearly older trees present in the plantation area
+
+#1.1 Geographical position indices calculation (TPI and TRI)
 f <- matrix(1, nrow=5, ncol=5)
 TPI_focal <- focal(Altimetria, w=f, fun=function(x, ...) x[5] - mean(x[-5]), pad=TRUE, padValue=NA)
 plot(TPI_focal)
 TRI <- focal(Altimetria, w=f, fun=function(x) sum(abs(x[-5]-x[5]))/8, pad=TRUE, padValue=NA)
 plot(TRI)
 
-#Geographical position indices calculation (TWI)
+#1.2 Geographical position indices calculation (TWI)
 # TWI calculation based on the methodology of https://vt-hydroinformatics.github.io/rgeoraster.html
 
-#Prepare DEM for Hydrology Analyses
-wbt_breach_depressions_least_cost(
+  # Prepare DEM for Hydrology Analyses
+  wbt_breach_depressions_least_cost(
   dem = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Orvalho_Altimetria.tif",
   output = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach.tif",
   dist = 5,
   fill = TRUE)
 
-wbt_fill_depressions_wang_and_liu(
+  # wbt_fill_depressions_wang_and_liu(
   dem = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach.tif",
   output = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif",
-)
-# Visualize filled sinks and breached depression
-filled_breached <- raster("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif")
-plot(filled_breached )
-difference <- Altimetria - filled_breached
-difference[difference == 0] <- NA
-tm_shape(hshade)+
-  tm_raster(style = "cont",palette = "-Greys", legend.show = FALSE)+
-  tm_scale_bar()+
-  tm_shape(difference)+
-  tm_raster(style = "cont",legend.show = TRUE)+
-  tm_scale_bar()
+  )
+  # Visualize and correct filled sinks and breached depression
+  filled_breached <- raster("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif")
+  plot(filled_breached)
+    difference <- Altimetria - filled_breached
+  difference[difference == 0] <- NA
 
-# D8 Flow Accumulation
-wbt_d8_flow_accumulation(input = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif",
-                         output = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/FlowAccum.tif")
-d8 <- raster("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/FlowAccum.tif")
-summary(d8)
-hist(d8)
-plot(d8)
+  #D infinity flow accumulation (alternative flow accumulation may be calculated from D infinity method D8 Flow Accumulation)
+  wbt_d_inf_flow_accumulation("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif",
+                              "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/Infinit_FlowAccum.tif")
+  dinf <- raster("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/Infinit_FlowAccum.tif")
+  plot(dinf)
 
-#D infinity flow accumulation
-wbt_d_inf_flow_accumulation("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif",
-                            "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/Infinit_FlowAccum.tif")
-dinf <- raster("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/Infinit_FlowAccum.tif")
-plot(dinf)
-
-##Topographic Wetness Index
-wbt_d_inf_flow_accumulation(input = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif",
+  #Calculate Specific Contributing Area
+  wbt_d_inf_flow_accumulation(input = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif",
                             output = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/FlowAccum2.tif",
                             out_type = "Specific Contributing Area")
 
-VO_SCA<-raster("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/FlowAccum2.tif")
-plot(VO_SCA)
-
-wbt_slope(dem = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif",
+  #Calculate slope or use slope mapped tif from data
+  wbt_slope(dem = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_DTM_breach_fill.tif",
           output = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_slope_degrees.tif",
           units = "degrees")
-VO_slope_test<-raster("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_slope_degrees.tif")
-plot(VO_slope_test)
-
-wbt_wetness_index(sca = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/FlowAccum2.tif",
+  #Calculate topographic wetness index
+  wbt_wetness_index(sca = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/FlowAccum2.tif",
                   slope = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/VO_slope_degrees.tif",
                   output = "C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/TWI.tif")
 
-twi <- raster("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/TWI.tif")
-plot(twi)
+  twi <- raster("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2022-Doutoramento/SpatialCorkoak Paper/CasteloBranco/Novos Dados/Teste/TWI.tif")
+  plot(twi)
 
-####################################################################################################################################################################################################################################################################
+#######################################
+#Calculate dimaeter related variables and attribute explanatory values to points
+
+#Considering du response variable
+
+#Attribute exploratory variable value according to the pixel where tree is positioned
+Mach_dados1$Cea_1m_1px<-extract(Cea_1m,Mach_dados1) #Variable Example
+
+
+#######################################
+#Considering du_mean response variable
 
 ##### Creating variables considering a moving window of the subject tree and the 8 closer neighbours (queen's case continuity)
 
-Mach_dados1 <- Mach_dados1[!is.na(Mach_dados1$TRI_1px), ] 
+#Remove lines with NA's in TRI/TPI, respective to points very close to the limits of the area and the 5x5 matrix from TRI is not completetly available
+Mach_dados1 <- Mach_dados1[!is.na(Mach_dados1$TRI_1px), ]  
+
+#Calculation of du_mean and attribution of values to tree points
+
+#Creating a dataframe for each subject tree and respective closest 8 neighbours (queen case)
 valor_du_mixid <- data.frame(matrix(NA,  ncol = 39))
 valor_du_mix1 <- data.frame(matrix(NA,  ncol = 39))
 valor_du_mix2 <- data.frame(matrix(NA,  ncol = 39))
@@ -86,6 +89,7 @@ valor_du_mix6 <- data.frame(matrix(NA,  ncol = 39))
 valor_du_mix7 <- data.frame(matrix(NA,  ncol = 39))
 valor_du_mix8 <- data.frame(matrix(NA,  ncol = 39))
 
+#Find each subject tree and respective closest 8 neighbours (queen case)
 Mach_dados1$continId<-c(1:dim(Mach_dados1)[1])
 for(i in c(1:nrow(Mach_dados1))) {
   valor_du_mixid[i,]<-Mach_dados1[i,]
@@ -99,7 +103,6 @@ for(i in c(1:nrow(Mach_dados1))) {
   valor_du_mix8[i,]<-(Mach_dados1[which(Mach_dados1$continId == ((knearneigh(Mach_dados1, k=8)$nn[i,8]))),])
 }
 head(valor_du_mixid)
-valor_du_mix1
 colnames(valor_du_mixid)<-names(Mach_dados1)
 colnames(valor_du_mix1)<-names(Mach_dados1)
 colnames(valor_du_mix2)<-names(Mach_dados1)
@@ -110,63 +113,22 @@ colnames(valor_du_mix6)<-names(Mach_dados1)
 colnames(valor_du_mix7)<-names(Mach_dados1)
 colnames(valor_du_mix8)<-names(Mach_dados1)
 
-
+#Calculate mean_du
 names(Mach_dados1)
 Mach_dados1$mean_du_mix<-((valor_du_mixid[,"Du2021"]+valor_du_mix1[,"Du2021"]+valor_du_mix2[,"Du2021"]+valor_du_mix3[,"Du2021"]+
                            valor_du_mix4[,"Du2021"]+valor_du_mix5[,"Du2021"]+valor_du_mix6[,"Du2021"]+valor_du_mix7[,"Du2021"]+
                            valor_du_mix8[,"Du2021"])/9)
 plot(Mach_dados1["mean_du_mix"], pch=16)
-#valor_du_mix_VS_backup<-Mach_dados1$mean_du_mix
-Mach_dados1$Cea_0.5_mix<-((valor_du_mixid[,"Cea_0.5m_1px"]+valor_du_mix1[,"Cea_0.5m_1px"]+valor_du_mix2[,"Cea_0.5m_1px"]+valor_du_mix3[,"Cea_0.5m_1px"]+
+
+#Calculate values of terrain variables attributes to points
+Mach_dados1$Cea_0.5_mix<-((valor_du_mixid[,"Cea_0.5m_1px"]+valor_du_mix1[,"Cea_0.5m_1px"]+valor_du_mix2[,"Cea_0.5m_1px"]+valor_du_mix3[,"Cea_0.5m_1px"]+  #Example of Cea_0.5
                            valor_du_mix4[,"Cea_0.5m_1px"]+valor_du_mix5[,"Cea_0.5m_1px"]+valor_du_mix6[,"Cea_0.5m_1px"]+valor_du_mix7[,"Cea_0.5m_1px"]+
                            valor_du_mix8[,"Cea_0.5m_1px"])/9)
-Mach_dados1$Cea_1_mix<-((valor_du_mixid[,"Cea_1m_1px"]+valor_du_mix1[,"Cea_1m_1px"]+valor_du_mix2[,"Cea_1m_1px"]+valor_du_mix3[,"Cea_1m_1px"]+
-                         valor_du_mix4[,"Cea_1m_1px"]+valor_du_mix5[,"Cea_1m_1px"]+valor_du_mix6[,"Cea_1m_1px"]+valor_du_mix7[,"Cea_1m_1px"]+
-                         valor_du_mix8[,"Cea_1m_1px"])/9)
-#Mach_dados1$Cea_dif_mix<-((valor_du_mixid[,21]+valor_du_mix1[,21]+valor_du_mix2[,21]+valor_du_mix3[,21]+
-#                           valor_du_mix4[,21]+valor_du_mix5[,21]+valor_du_mix6[,21]+valor_du_mix7[,21]+
-#                           valor_du_mix8[,21])/9)
-Mach_dados1$TRI_mix<-((valor_du_mixid[,"TRI_1px"]+valor_du_mix1[,"TRI_1px"]+valor_du_mix2[,"TRI_1px"]+valor_du_mix3[,"TRI_1px"]+
-                       valor_du_mix4[,"TRI_1px"]+valor_du_mix5[,"TRI_1px"]+valor_du_mix6[,"TRI_1px"]+valor_du_mix7[,"TRI_1px"]+
-                       valor_du_mix8[,"TRI_1px"])/9)
-Mach_dados1$TPI_mix<-((valor_du_mixid[,"TPI_1px"]+valor_du_mix1[,"TPI_1px"]+valor_du_mix2[,"TPI_1px"]+valor_du_mix3[,"TPI_1px"]+
-                       valor_du_mix4[,"TPI_1px"]+valor_du_mix5[,"TPI_1px"]+valor_du_mix6[,"TPI_1px"]+valor_du_mix7[,"TPI_1px"]+
-                       valor_du_mix8[,"TPI_1px"])/9)
-Mach_dados1$slopeX_mix<-((valor_du_mixid[,"slopeX_1px"]+valor_du_mix1[,"slopeX_1px"]+valor_du_mix2[,"slopeX_1px"]+valor_du_mix3[,"slopeX_1px"]+
-                          valor_du_mix4[,"slopeX_1px"]+valor_du_mix5[,"slopeX_1px"]+valor_du_mix6[,"slopeX_1px"]+valor_du_mix7[,"slopeX_1px"]+
-                          valor_du_mix8[,"slopeX_1px"])/9)
-Mach_dados1$accu_mix<-((valor_du_mixid[,"accu_1px"]+valor_du_mix1[,"accu_1px"]+valor_du_mix2[,"accu_1px"]+valor_du_mix3[,"accu_1px"]+
-                        valor_du_mix4[,"accu_1px"]+valor_du_mix5[,"accu_1px"]+valor_du_mix6[,"accu_1px"]+valor_du_mix7[,"accu_1px"]+
-                        valor_du_mix8[,"accu_1px"])/9)
-Mach_dados1$hshade_mix<-((valor_du_mixid[,"hshade_1px"]+valor_du_mix1[,"hshade_1px"]+valor_du_mix2[,"hshade_1px"]+valor_du_mix3[,"hshade_1px"]+
-                          valor_du_mix4[,"hshade_1px"]+valor_du_mix5[,"hshade_1px"]+valor_du_mix6[,"hshade_1px"]+valor_du_mix7[,"hshade_1px"]+
-                          valor_du_mix8[,"hshade_1px"])/9)
-Mach_dados1$rough_mix<-((valor_du_mixid[,"rough_1px"]+valor_du_mix1[,"rough_1px"]+valor_du_mix2[,"rough_1px"]+valor_du_mix3[,"rough_1px"]+
-                         valor_du_mix4[,"rough_1px"]+valor_du_mix5[,"rough_1px"]+valor_du_mix6[,"rough_1px"]+valor_du_mix7[,"rough_1px"]+
-                         valor_du_mix8[,"rough_1px"])/9)
-Mach_dados1$slope_mix<-((valor_du_mixid[,"slopeX_1px"]+valor_du_mix1[,"slopeX_1px"]+valor_du_mix2[,"slopeX_1px"]+valor_du_mix3[,"slopeX_1px"]+
-                         valor_du_mix4[,"slopeX_1px"]+valor_du_mix5[,"slopeX_1px"]+valor_du_mix6[,"slopeX_1px"]+valor_du_mix7[,"slopeX_1px"]+
-                         valor_du_mix8[,"slopeX_1px"])/9)
-Mach_dados1$cos_asp_mix<-((valor_du_mixid[,"cos_aspect_1px"]+valor_du_mix1[,"cos_aspect_1px"]+valor_du_mix2[,"cos_aspect_1px"]+valor_du_mix3[,"cos_aspect_1px"]+
-                           valor_du_mix4[,"cos_aspect_1px"]+valor_du_mix5[,"cos_aspect_1px"]+valor_du_mix6[,"cos_aspect_1px"]+valor_du_mix7[,"cos_aspect_1px"]+
-                           valor_du_mix8[,"cos_aspect_1px"])/9)
-Mach_dados1$altim_rel_mix<-((valor_du_mixid[,"altim_rel"]+valor_du_mix1[,"altim_rel"]+valor_du_mix2[,"altim_rel"]+valor_du_mix3[,"altim_rel"]+
-                             valor_du_mix4[,"altim_rel"]+valor_du_mix5[,"altim_rel"]+valor_du_mix6[,"altim_rel"]+valor_du_mix7[,"altim_rel"]+
-                             valor_du_mix8[,"altim_rel"])/9)
-Mach_dados1$TWI_mix<-((valor_du_mixid[,"TWI_1px"]+valor_du_mix1[,"TWI_1px"]+valor_du_mix2[,"TWI_1px"]+valor_du_mix3[,"TWI_1px"]+
-                       valor_du_mix4[,"TWI_1px"]+valor_du_mix5[,"TWI_1px"]+valor_du_mix6[,"TWI_1px"]+valor_du_mix7[,"TWI_1px"]+
-                       valor_du_mix8[,"TWI_1px"])/9)
-Mach_dados1$TWI_Antonio_mix<-((valor_du_mixid[,"TWI_Antonio_1px"]+valor_du_mix1[,"TWI_Antonio_1px"]+valor_du_mix2[,"TWI_Antonio_1px"]+valor_du_mix3[,"TWI_Antonio_1px"]+
-                               valor_du_mix4[,"TWI_Antonio_1px"]+valor_du_mix5[,"TWI_Antonio_1px"]+valor_du_mix6[,"TWI_Antonio_1px"]+valor_du_mix7[,"TWI_Antonio_1px"]+
-                               valor_du_mix8[,"TWI_Antonio_1px"])/9)
-Mach_dados1$TPI_Antonio_mix<-((valor_du_mixid[,"TPI_Antonio_1px"]+valor_du_mix1[,"TPI_Antonio_1px"]+valor_du_mix2[,"TPI_Antonio_1px"]+valor_du_mix3[,"TPI_Antonio_1px"]+
-                               valor_du_mix4[,"TPI_Antonio_1px"]+valor_du_mix5[,"TPI_Antonio_1px"]+valor_du_mix6[,"TPI_Antonio_1px"]+valor_du_mix7[,"TPI_Antonio_1px"]+
-                               valor_du_mix8[,"TPI_Antonio_1px"])/9)
 
-
-####################################################################################################################################################################################################################################################################
-
-### Selection neighbours according to overlapping areas of influence
+#######################################
+#Spatial autocorrelation analysis
+#Definition of Spatial Matrix
+#Selection of neighbours according to overlapping areas of influence
 
 Mach_dados2$du_dug<-""
 Mach_dados2$du_dug<-Mach_dados2$Du2021/(sqrt(sum((Mach_dados2$Du2021)^2)/length(Mach_dados2$Du2021)))
@@ -190,15 +152,14 @@ mt<-merge(submelt01, M101[,c("continId","influence_area_est" )], by.x="Var1", by
 mtt<-merge(mt, M101[,c("continId","influence_area_est" )], by.x="Var2", by.y="continId")  #Criar uma coluna de diametros para a Var2, dependendo do nÃºmero da Ã¡rvore
 names(mtt)<-c(names(mtt)[1:3], "influence_area_est2",  "influence_area_est1") #mudar os nomes das colunas da novas da dataframe
 head(mtt)
-matrixA<-matrix(nrow=832, ncol=832)
+matrixA<-matrix(nrow=nrow(M101), ncol=nrow(M101))
 for (k in c(1:nrow(mtt))){
   valor1<-mtt[k,1]
   valor2<-mtt[k,2]
   linha<- mtt[k,]
   #  matrixA[valor1,valor2]<- ifelse((linha$influence_area_est1 + linha$influence_area_est2 > linha$value),valor2,0)
   matrixA[valor1,valor2]<- ifelse((linha$influence_area_est1 + linha$influence_area_est2 > linha$value),1,0)
-  
-}
+  }
 matrixA[is.na(matrixA)] = 0
 colnames(matrixA) <- rownames(matrixA) <- Mach_dados2$continId
 View(matrixA)
@@ -206,20 +167,57 @@ WA<- mat2listw(matrixA)
 par(cex=0.5, pch=16)
 plot(WA,coord=st_coordinates(Mach_dados2), col="red")
 
+#Global Moran's I test
+moran.test(Mach_dados2$Du2021, listw=WA,zero.policy=TRUE)
 
-####################################################################################################################################################################################################################################################################
-### Preparar spatial modelling
+#Correlogram construction and plotting 
 
+ sp.correlogram(nlist, var=Mach_dados1$Cea_0.5m_1px, method="I", order=8)
+ plot(sp.correlogram(nlist, var=Mach_dados1$Cea_0.5m_1px, method="I"))
+ plot(sp.correlogram(  nb.k4 , var=Mach_dados1$Cea_0.5m_1px, method="I", order=4,zero.policy = TRUE))
+
+#Local Moran's I Analysis
+  localm<-localmoran(teste$Du2021, listw=Wk8,alternative = "greater")
+
+  quadrant <- vector(mode="numeric",length=nrow(localm))
+  m.qualification <- teste$Du2021 - mean(teste$Du2021)  # centers the variable of interest around its mean
+  m.local <- localm[,1] - mean(localm[,1])    # centers the local Moran's around the mean
+  signif <- 0.1 # significance threshold
+  quadrant[m.qualification >0 & m.local>0] <- 4  # builds a data quadrant
+  quadrant[m.qualification <0 & m.local<0] <- 1      
+  quadrant[m.qualification <0 & m.local>0] <- 2
+  quadrant[m.qualification >0 & m.local<0] <- 3
+  quadrant[teste$localmoran2>signif] <- 0   
+  # plot 
+  brks <- c(0,1,2,3,4)
+  colors <- c("grey","black","orange","red","darkgreen")
+  plot(teste[1],col=colors[findInterval(quadrant,brks,all.inside=FALSE)], pch=c(1,18,16,16,16)[as.factor(quadrant)],main="")
+  legend("bottomleft", legend = c("insignificant","low-low","low-high","high-low","high-high"),
+        fill=colors,bty="n")
+       
+#######################################
+# Non-spatial modelling
+
+Mach<-Mach_dados1
+st_geometry(Mach)=NULL
+summary(lm(f , data=Dados_SpatialCorkOak1Tudo))
+vif(lm(funcao, data=Dados_SpatialCorkOak1Tudo))
+plot(lm(funcao, data=Dados_SpatialCorkOak1Tudo))
+AIC(lm(funcao , data=Dados_SpatialCorkOak1Tudo))
  
- duplicated(Mach_dados1$geometry)
+ 
+ f<-as.formula("du~  Cea_1m_1px+  Cea_0.5m_1px+  slope_1px+  Elev_1px+  TRI_1px+  TPI_1px+  cos_aspect_1px+  TWI_1px")        #function for linear models on individual tree diameter for singular sites
+ f<-as.formula("du_annual_growth~ Cea_1_mean+  Cea_0.5_mean+  slope_mean+  Elev_mean+  TRI_mean+ cos_aspect_mean+ TWI_mean")  #function for linear models on individual tree diameter for all data
+ f<-as.formula("du_mean~  Cea_1m_mean+  Cea_0.5m_1px+  slope_1px+  Elev_1px+  TRI_1px+  TPI_1px+  cos_aspect_1px+  TWI_1px")  #function for linear models on mean tree diameter for singular sites
+ f<-as.formula("mean_du_annual_growth~ Cea_1_mean+  Cea_0.5_mean+  slope_mean+  Elev_mean+  TRI_mean+ cos_aspect_mean+ TWI_mean") #function for linear models on mean tree diameter for all data
+ 
+ 
+### Spatial modelling
+
+duplicated(Mach_dados1$geometry)
  W <- nb2listw(WA$neighbours, style="W",zero.policy = TRUE)
- f <- as.formula("mean_du_mix~Cea_0.5m_1px+Cea_1m_1px+
-             altim_rel+slope_1px+cos_aspect_1px+
-             TRI_1px+TPI_1px+TWI_1px")
- f <- as.formula("  Du2021~
-             altim_rel+
-             TPI_1px+
-             TWI_1px")
+ f <- as.formula("du~Cea_1m_1px+  Cea_0.5m_1px+  slope_1px+  Elev_1px+  TRI_1px+  TPI_1px+  cos_aspect_1px+  TWI_1px")
+
  
  mod.lag <- lagsarlm(f,Mach_dados2,listw=W,zero.policy = TRUE)
  summary(mod.lag)
@@ -230,131 +228,20 @@ plot(WA,coord=st_coordinates(Mach_dados2), col="red")
  LR.sarlm(m,mod.lag)
  LR.sarlm(m,mod.err)
  AIC(mod.lag,mod.err)
+ 
  mod.sac <- sacsarlm(f,data=Mach_dados2,listw=W,zero.policy = TRUE)
  LR.sarlm(mod.sac,mod.lag)
  LR.sarlm(mod.sac,mod.err)
  AIC(mod.lag,mod.err,mod.sac,n)
  summary(mod.sac)
  
- mod.sac2 <- sacsarlm(Du2021 ~  Cea_0.5m_1px+
-                       slope_1px+
-                        TRI_1px+TPI_1px+TWI_1px,data=Mach_dados1,listw=W,zero.policy = TRUE)
+ mod.sac2 <- sacsarlm(Du2021 ~ Cea_0.5m_1px+slope_1px+TRI_1px+TPI_1px+TWI_1px,data=Mach_dados1,listw=W,zero.policy = TRUE)
  summary(mod.sac2)
- 
- 
  AIC(mod.lag,mod.err,mod.sac, mod.sac2)
-
  hist(mod.sac2$residuals)
  qqnorm(mod.sac2$residuals)
  qqline(mod.sac2$residuals)
- 
- 
  plot(mod.sac2$residuals ~ fitted(mod.sac2), data=Mach_dados1)
 
  
- ####################################################################################################################################################################################################################################################################
- #### Spatial Analysis - Global analysis
- 
-dnearneigh(Mach_dados2, d1=0, d2=15)
-Wd15 <- nb2listw(dnearneigh(Mach_dados2, d1=0, d2=15))
-par(cex=0.5, pch=16)
-plot(dnearneigh(Mach_dados2, d1=0, d2=15),
-     coord=(Mach_dados2$geometry), col="red")
 
-knn2nb(knearneigh(Mach_dados2, k=4))
-par(cex=0.5, pch=16)
-plot(knn2nb(knearneigh(Mach_dados2, k=8)),
-     coord=(Mach_dados2$geometry), col="red")
-Wd12 <- nb2listw(dnearneigh(Mach_dados2, d1=0, d2=15) )
-moran.test(Mach_dados2$Du2021, listw=Wd12)
-Wd15 <- nb2listw(dnearneigh(Mach_dados2, d1=15, d2=30))
-moran.test(Mach_dados2$Du2021, listw=Wd15)
-Wd30 <- nb2listw(dnearneigh(Mach_dados2, d1=30, d2=45))
-moran.test(Mach_dados2$Du2021, listw=Wd30)
-Wd45<- nb2listw(dnearneigh(Mach_dados2, d1=45, d2=60))
-moran.test(Mach_dados2$Du2021, listw=Wd45)
-Wd60 <- nb2listw(dnearneigh(Mach_dados2, d1=60, d2=75))
-moran.test(Mach_dados2$Du2021, listw=Wd60)
-Wd50 <- nb2listw(dnearneigh(Mach_dados2, d1=0, d2=50))
-moran.test(Mach_dados2$Du2021, listw=Wd50)
-Wd180 <- nb2listw(dnearneigh(Mach_dados2, d1=0, d2=180))
-moran.test(Mach_dados2$Du2021, listw=Wd180)
-Wd20 <- nb2listw(dnearneigh(Mach_dados2, d1=0, d2=20))
-moran.test(Mach_dados2$Du2021, listw=Wd20)
-
-
-teste<-Mach_dados2
-nlist <- knn2nb(knearneigh(teste,k=8))
-Wk8 <- nb2listw(nlist,style="W")
-moran.test(teste$Du2021, listw=Wk8,alternative = "greater")
-moran.test(teste$Du2021, listw=Wk8,alternative = "less")
-moran.test(teste$Du2021, listw=Wk8,alternative = "two.sided")
-
-Wd15 <- nb2listw(dnearneigh(teste, d1=0, d2=15),style="W" )
-moran.test(teste$Du2021, listw=Wd15,alternative = "greater")
-moran.test(teste$Du2021, listw=Wd15,alternative = "less")
-moran.test(teste$Du2021, listw=Wd15,alternative = "two.sided")
-
- #### Spatial Analysis - Local Moran I analysis
-
-localm<-localmoran(teste$Du2021, listw=Wk8,alternative = "greater")
-teste$localmoran<-localm[,"Ii"]
-hist(localm[,"Ii"])
-plot(localm[,"Ii"])
-plot(teste["localmoran"], pch=16)
-
-teste$localmoran2<-localm[,"Pr(z > 0)"]
-hist(localm[,"Ii"])
-plot(localm[,"Ii"])
-plot(teste["localmoran2"], pch=16)
-teste3<-teste[which(teste$localmoran2 < 0.05),]
-plot(teste3["localmoran2"], pch=16)
-
-teste$localmoran3<-ifelse(
-  teste$localmoran2 > 0.05 , 0,  ifelse( teste$localmoran > 1,
-  1,2))
-cores<-c("grey70","black", "grey50")
-mycols <- adjustcolor(cores, alpha.f = 1)
-palette(mycols)
-plot(teste["localmoran3"], col= as.factor(teste$localmoran3), pch=c(1, 16)[as.factor(teste$localmoran3)], main="" )
-plot(teste["localmoran3"], col= as.factor(teste$localmoran3), pch=c(1, 16,16)[as.factor(teste$localmoran3)], main="" )
-
-#### Spatial Analysis - Local Moran I plotting 
-
-plot(teste["localmoran"], pch=16 )  ####1
-
-quadrant <- vector(mode="numeric",length=nrow(localm))
-
-# centers the variable of interest around its mean
-m.qualification <- teste$Du2021 - mean(teste$Du2021)     
-
-# centers the local Moran's around the mean
-m.local <- localm[,1] - mean(localm[,1])    
-
-# significance threshold
-signif <- 0.1 
-
-# builds a data quadrant
-quadrant[m.qualification >0 & m.local>0] <- 4  
-quadrant[m.qualification <0 & m.local<0] <- 1      
-quadrant[m.qualification <0 & m.local>0] <- 2
-quadrant[m.qualification >0 & m.local<0] <- 3
-quadrant[teste$localmoran2>signif] <- 0   
-
-# plot in r
-brks <- c(0,1,2,3,4)
-colors <- c("grey","black","orange","red","darkgreen")
-plot(teste[1],col=colors[findInterval(quadrant,brks,all.inside=FALSE)], pch=c(1,18,16,16,16)[as.factor(quadrant)],main="")
-box()
-legend("bottomleft", legend = c("insignificant","low-low","low-high","high-low","high-high"),
-       fill=colors,bty="n")
-       
-  
-#### Spatial Analysis - Correlogram construction and plotting 
-
-  sp.correlogram(nlist, var=Mach_dados1$Cea_0.5m_1px, method="I", order=8)
-  plot(sp.correlogram(nlist, var=Mach_dados1$Cea_0.5m_1px, method="I"))
-  plot(sp.correlogram(  nb.k4 , var=Mach_dados1$Cea_0.5m_1px, method="I", order=4,zero.policy = TRUE))
- 
-  Wd5 <- nb2listw(dnearneigh(Mach_dados1, d1=0, d2=9 ),zero.policy = TRUE)
- lm.morantest(lm(Cea_1m_1px ~ st_coordinates(Mach_dados1)[,1] + st_coordinates(Mach_dados1)[,2], data=Mach_dados1), listw=Wd5)
