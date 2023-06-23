@@ -5,16 +5,16 @@ library(car)
 ibrary(spatialreg)
 library(gstat)
 
-
+########
 ###Section 1 - Data preparation and variable calculation
+########
 #Upload and prepare data file
 Dados_SpatialCorkOak_9_maio_23 <- read_excel("/path/Dados_SpatialCorkOak_9_maio_23.xlsx")
 parcela<-Dados_SpatialCorkOak1[which(Dados_SpatialCorkOak1$Site == "A"),] ## Select on of the 4 properties (A, B, C, D) - A and B are Santarém, C and D are Castelo Branco 
 parcela<-parcela[which(parcela$mais_velha == 0),]  ##Remove clearly older trees present in the plantation area
 
-########
-### Variable calculation - these variable are already calculated on the sf object. Code displayed in this section is only for informative purposes
-########
+
+##1. Variable calculation - these variable are already calculated on the sf object. Code displayed in this section is only for informative purposes
 
 #1.1 Geographical position indices calculation (TPI and TRI)
 f <- matrix(1, nrow=5, ncol=5)
@@ -72,6 +72,8 @@ parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example
 
 
 ########
+##2. Spatial autocorrelation analysis
+########
 #Section 2 - Spatial autocorrelation analysis
 #Spatial autocorrelation analysis is applied to each plot separately, with the following steps: 
 #1) Spatial matrix definition;
@@ -79,8 +81,10 @@ parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example
 #3) Global Moran's I analysis
 #4) Correlogram (Moran's I statistics) analysis
 #5) Local Moran's I analysis
-
-#2.1 Spatial matrix definition
+             
+########
+##2.1 Spatial matrix definition
+########             
 #Although plantations are regular, trees are not at exact distances to make preferable the using of polygons for analysis.
 #Its opted using points for the analysis. Output of 2.1 is nb object.
 #Three methods are tested to choice the proper spatial matrix 
@@ -136,7 +140,6 @@ colnames(matrix) <- rownames(matrix) <- parcela_vivas$continId #give names to ne
 View(matrix) #check if result is correct
 W<- mat2listw(matrix) #creates a listw object from this matrix, ready to be applied.
 
-
 ####2.1.4  Plot and compare results
 par(mfrow=c(2,3));par(cex=0.4, pch=16)
 plot(dnearneigh(parcela_vivas, d1=0, d2=8), coord=(parcela_vivas$geometry), col="red");title(main=paste("Distance based neighbours - 8m"),cex.main=2)
@@ -145,6 +148,105 @@ plot(dnearneigh(parcela_vivas, d1=0, d2=15), coord=(parcela_vivas$geometry), col
 plot(knn2nb(knearneigh(parcela_vivas, k=4)), coord=(parcela_vivas$geometry), col="red");title(main=paste("k neighbours - 4"),cex.main=2)
 plot(knn2nb(knearneigh(parcela_vivas, k=8)), coord=(parcela_vivas$geometry), col="red");title(main=paste("k neighbours - 8"),cex.main=2)
 plot(W,coord=(parcela_vivas$geometry),col="red"); title(main=paste("Area of Influence approach"),cex.main=2)
+
+######
+Evaluation: 
+#8m distance and k=4 neighbours seem to underestimate the amount of links per tree
+#15m distance seems to overestimate the amount of links per tree    
+#10 distance and k=8 seem to have a most realistic number and distribution of neighbours
+#Area of Influence approach seems to work better on site A and B, where tree size is more regular
+#Area of Influence approach may overestimate the neighbours in larger trees
+#Area of Influence approach underestimate spatial autocorrelation in very small trees (very few or no neighbours) in C and D
+########
+
+             
+##2.1.2 Spatial weights matrix definition
+########    
+##Three methods are tested to choose weights: 1) row-normalized (W); 2) Binary (B); Inverse of distance (idw)
+#The three methods generate distinct spatial weight matrices, an object class listw
+#Example of a previously defined nb object
+nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE, style="W) #row-normalized
+nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B") #bianry
+nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE) #idw        
+
+#To select the most suitable weights, they are compared on the following spatial analysis functions
+
+########
+##2.2 Global Moran'I test
+########  
+# A table can be created fro each plot to compare the multiple methods outputs: Morans'I statistic and respective p-value.
+#Example of the output table, plot A:
+#                         Weights    Row-normalized          Inverse Distance                    Binary        
+#                          Method Moran I statistic p-value Moran I statistic p-value Moran I statistic p-value
+#  Distance based neighbours - 8m              0.16       0             0.187       0             0.145       0
+# Distance based neighbours - 10m             0.129       0             0.154       0              0.12       0
+# Distance based neighbours - 15m             0.129       0             0.136       0             0.112       0
+#                k neighbours - 4             0.158       0             0.193       0             0.158       0
+#                k neighbours - 8             0.127       0             0.156       0             0.127       0
+#      Area of Influence approach              0.07   4e-05             0.102       0             0.103       0
+
+tabela<-data.frame()
+tabela[1,1]<- "Method"
+tabela[2,1]<- "Distance based neighbours - 8m"
+tabela[3,1]<- "Distance based neighbours - 10m"
+tabela[4,1]<- "Distance based neighbours - 15m"
+tabela[5,1]<- " k neighbours - 4"
+tabela[6,1]<- " k neighbours - 8"
+tabela[7,1]<- "Area of Influence approach"
+tabela[1,2]<-"Moran I statistic";tabela[1,3]<-"p-value";tabela[1,4]<-"Moran I statistic";tabela[1,5]<-"p-value";tabela[1,6]<-"Moran I statistic";tabela[1,7]<-"p-value";
+#distance base tests - row-normalized weights; zero.policy=TRUE must be present since there is always points with no (living) neighbours
+tabela[2,2]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[2,3]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[3,2]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[3,3]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[4,2]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[4,3]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+#distance base tests - inverse of distance weights; can be used nb2listwdist function
+tabela[2,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[2,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[3,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[3,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[4,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[4,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+#distance base tests - binary weights
+tabela[2,6]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[2,7]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B"),zero.policy=TRUE)$p.value,5)
+tabela[3,6]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[3,7]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="B"),zero.policy=TRUE)$p.value,5)
+tabela[4,6]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[4,7]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="B"),zero.policy=TRUE)$p.value,5)
+#k neighbours - row-normalized weights
+tabela[5,2]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="W"),zero.policy=TRUE)$estimate[1],3)
+tabela[5,3]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="W"),zero.policy=TRUE)$p.value,5)
+tabela[6,2]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="W"),zero.policy=TRUE)$estimate[1],3)
+tabela[6,3]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="W"),zero.policy=TRUE)$p.value,5)
+#k neighbours - inverse of distance weights 
+tabela[5,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$estimate[1],3)
+tabela[5,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$p.value,5)
+tabela[6,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$estimate[1],3)
+tabela[6,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$p.value,5)
+#k neighbours - binary weights
+tabela[5,6]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[5,7]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="B"),zero.policy=TRUE)$p.value,5)
+tabela[6,6]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[6,7]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy=TRUE)$p.value,5)
+#Area of influence neighbours - three weights (WW, Wdist, WB)
+tabela[7,2]<-round(moran.test(parcela_vivas$du,WCW, zero.policy=TRUE)$estimate[1],3)
+tabela[7,3]<-round(moran.test(parcela_vivas$du,WCW, zero.policy=TRUE)$p.value,5)
+tabela[7,4]<-round(moran.test(parcela_vivas$du,WCdist, zero.policy=TRUE)$estimate[1],3)
+tabela[7,5]<-round(moran.test(parcela_vivas$du,WCdist, zero.policy=TRUE)$p.value,5)
+tabela[7,6]<-round(moran.test(parcela_vivas$du,WC, zero.policy=TRUE)$estimate[1],3)
+tabela[7,7]<-round(moran.test(parcela_vivas$du,WC, zero.policy=TRUE)$p.value,5)
+nomes<-c("Weights","Row-normalized","","Inverse Distance","", "Binary","");colnames(tabela)<-nomes
+tabelaA<-tabela
+
+#######
+Evaluation:
+
+
+
+
+
 
 
 
