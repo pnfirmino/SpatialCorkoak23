@@ -105,37 +105,37 @@ parcela_vivas$du_dug<-as.numeric(parcela_vivas$du_dug)
 parcela_vivas$influence_area_est<-2.5*(28.502*exp((-66.436+4.201*(parcela_vivas$du_dug))/(19.817+parcela_vivas$du))/2) 
 plot(parcela_vivas["influence_area_est"],pch=16)
 
-#2.1.3.2 
+#2.1.3.2 Creating of neighbour/distance table; 
 xy=st_coordinates(parcela_vivas)
-matrix<-dist(xy, "euclidean") #Calculas as distancias em classe dist
-matrix=as.matrix(matrix, labels=TRUE) #Passa o objecto de classe dist para matriz
-colnames(matrix) <- rownames(matrix) <- parcela_vivas$continId
-melt <- melt(matrix) #desfaz a matrix em colunas apenas
-summary(melt)
-
+matrix<-as.matrix(dist(xy, "euclidean"), labels=TRUE) #Distance matrix
+colnames(matrix) <- rownames(matrix) <- parcela_vivas$continId #Name rows and columns
+melt <- melt(matrix) #unmaked the matrix to columns
 M101<-data.frame(parcela_vivas)
-melt_0<-melt[which(melt$value!=0),]  
-submelt01<-melt[melt_0$Var1 %in% M101$continId & melt_0$Var2 %in% M101$continId,]
-submelt01<-submelt01[which(submelt01$value<33),] #33m is the highest distance between two neighbouring trees. THis conditions fastens the process
-submelt01<-submelt01[which(submelt01$value!=0),]
-mt<-merge(submelt01, M101[,c("continId","influence_area_est" )], by.x="Var1", by.y="continId") #Criar uma coluna de diametros para a Var1, dependendo do numero da arvore
-mtt<-merge(mt, M101[,c("continId","influence_area_est" )], by.x="Var2", by.y="continId")  #Criar uma coluna de diametros para a Var2, dependendo do numero da arvore
-names(mtt)<-c(names(mtt)[1:3], "influence_area_est2",  "influence_area_est1") #mudar os nomes das colunas da novas da dataframe
+melt_0<-melt[which(melt$value!=0),]  #removes the distances=zero
+submelt01<-melt[melt_0$Var1 %in% M101$continId & melt_0$Var2 %in% M101$continId,] #creates a table with Var1, Var2 and the distance value between then
+submelt01<-submelt01[which(submelt01$value<33),] #Removes any lines with distace > 33m, which is the highest distance between two neighbouring trees. This condition fastens the process.
+submelt01<-submelt01[which(submelt01$value!=0),] #Removes distances =0
+mt<-merge(submelt01, M101[,c("continId","influence_area_est" )], by.x="Var1", by.y="continId") #Creates a diameter column for Var1, depending on tree number
+mtt<-merge(mt, M101[,c("continId","influence_area_est" )], by.x="Var2", by.y="continId") #Creates a diameter column for Var2, depending on tree number
+names(mtt)<-c(names(mtt)[1:3], "influence_area_est2",  "influence_area_est1") #change the names of the two new columns
 head(mtt)
-matrixA<-matrix(nrow=832, ncol=832)
-for (k in c(1:nrow(mtt))){
+
+#2.1.3.3 Identifying the trees with sobreposed areas of influence and providing a value for them as neighbours
+matrix<-matrix(nrow=length(parcela_vivas), ncol=length(parcela_vivas)) #starts a blank matrix for the cycle
+for (k in c(1:nrow(mtt))){ 
   valor1<-mtt[k,1]
   valor2<-mtt[k,2]
   linha<- mtt[k,]
-  #  matrixA[valor1,valor2]<- ifelse((linha$influence_area_est1 + linha$influence_area_est2 > linha$value),valor2,0)
-  matrixA[valor1,valor2]<- ifelse((linha$influence_area_est1 + linha$influence_area_est2 > linha$value),1,0)
-  
+  matrix[valor1,valor2]<- ifelse((linha$influence_area_est1 + linha$influence_area_est2 > linha$value),1,0)
 }
-matrixA[is.na(matrixA)] = 0
-colnames(matrixA) <- rownames(matrixA) <- Mach_dados2$continId
-View(matrixA)
-WA<- mat2listw(matrixA)
-WAW<- mat2listw(matrixA,style = "W")
+#asks if the sum of radius of area of influence of two trees is higher than their distance. 
+#If true, they are neighbours. The value attributed if neighbours can work as a weight. In this case is 1, similar to binary case.
+
+matrix[is.na(matrix)] = 0 #turns NA to zeros
+colnames(matrix) <- rownames(matrix) <- parcela_vivas$continId #give names to new matrix
+View(matrix) #check if result is correct
+W<- mat2listw(matrix) #creates a listw object from this matrix, ready to be applied.
+
 
 
 
