@@ -137,6 +137,17 @@ View(matrix) #check if result is correct
 W<- mat2listw(matrix) #creates a listw object from this matrix, ready to be applied.
 
 
+####2.1.4  Plot and compare results
+par(mfrow=c(2,3));par(cex=0.4, pch=16)
+plot(dnearneigh(parcela_vivas, d1=0, d2=8), coord=(parcela_vivas$geometry), col="red");title(main=paste("Distance based neighbours - 8m"),cex.main=2)
+plot(dnearneigh(parcela_vivas, d1=0, d2=10), coord=(parcela_vivas$geometry), col="red");title(main=paste("Distance based neighbours -10m"),cex.main=2)
+plot(dnearneigh(parcela_vivas, d1=0, d2=15), coord=(parcela_vivas$geometry), col="red");title(main=paste("Distance based neighbours - 15m"),cex.main=2)
+plot(knn2nb(knearneigh(parcela_vivas, k=4)), coord=(parcela_vivas$geometry), col="red");title(main=paste("k neighbours - 4"),cex.main=2)
+plot(knn2nb(knearneigh(parcela_vivas, k=8)), coord=(parcela_vivas$geometry), col="red");title(main=paste("k neighbours - 8"),cex.main=2)
+plot(W,coord=(parcela_vivas$geometry),col="red"); title(main=paste("Area of Influence approach"),cex.main=2)
+
+
+
 
 
 
