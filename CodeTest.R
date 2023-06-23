@@ -10,7 +10,7 @@ library(gstat)
 #Upload and prepare data file
 Dados_SpatialCorkOak_9_maio_23 <- read_excel("/path/Dados_SpatialCorkOak_9_maio_23.xlsx")
 parcela<-Dados_SpatialCorkOak1[which(Dados_SpatialCorkOak1$Site == "A"),] ## Select on of the 4 properties (A, B, C, D) - A and B are Santarém, C and D are Castelo Branco 
-parcela<-A[which(parcela$mais_velha == 0),]  ##Remove clearly older trees present in the plantation area
+parcela<-parcela[which(parcela$mais_velha == 0),]  ##Remove clearly older trees present in the plantation area
 
 ########
 ### Variable calculation - these variable are already calculated on the sf object. Code displayed in this section is only for informative purposes
@@ -36,7 +36,7 @@ plot(TRI)
   output = "/path/parcela_DTM_breach_fill.tif",
   )
   # Visualize and correct filled sinks and breached depression
-  filled_breached <- raster(/path/parcela_DTM_breach_fill.tif")
+  filled_breached <- raster(/path/"parcela_DTM_breach_fill.tif")
   plot(filled_breached)
     difference <- Altimetria - filled_breached
   difference[difference == 0] <- NA
@@ -86,12 +86,12 @@ parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example
 #Three methods are tested to choice the proper spatial matrix 
 #1) Distance based neighbours; k neighbours; Tree area of influence sobreposition
 #2.1.1 Distance base neighbours nb objects creation - Selected 8, 10 and 15m. The idea is capture links according to plantation spacing
-#dnearneigh(parcela_vivas, d1=0, d2=8)
-#dnearneigh(parcela_vivas, d1=0, d2=10)
-#dnearneigh(parcela_vivas, d1=0, d2=15)
+dnearneigh(parcela_vivas, d1=0, d2=8)
+dnearneigh(parcela_vivas, d1=0, d2=10)
+dnearneigh(parcela_vivas, d1=0, d2=15)
 #2.1.2 k neighbours - Selected 4 and 8 neighbours.
-#knn2nb(knearneigh(parcela_vivas, k=4))
-#knn2nb(knearneigh(parcela_vivas, k=8))
+knn2nb(knearneigh(parcela_vivas, k=4))
+knn2nb(knearneigh(parcela_vivas, k=8))
 #2.1.3  Tree area of influence sobreposition
 #Requires 3 steps: 
 #1)Calculating individual tree area of influence;
@@ -106,7 +106,7 @@ parcela_vivas$influence_area_est<-2.5*(28.502*exp((-66.436+4.201*(parcela_vivas$
 plot(parcela_vivas["influence_area_est"],pch=16)
 
 #2.1.3.2 Creating of neighbour/distance table; 
-xy=st_coordinates(parcela_vivas)
+xy<-st_coordinates(parcela_vivas)
 matrix<-as.matrix(dist(xy, "euclidean"), labels=TRUE) #Distance matrix
 colnames(matrix) <- rownames(matrix) <- parcela_vivas$continId #Name rows and columns
 melt <- melt(matrix) #unmaked the matrix to columns
