@@ -242,11 +242,15 @@ tabelaA<-tabela
 
 #######
 Evaluation:
+#Generally similar results on Moran I statistics on distance based and k-neighbours spatial matrices. 
+#Area of influence method with distinct results, and depends on the plot
+#Row-normalized and Binary weights produce same results on k-neighbours methods, as expected
+#idw weights show consistent slightly higher Moran's I statistics, except for site C (?)
+#8m distance base and k4 neighbours show slightly higher Moran's I statistics for any weights
 
-
-
-
-
+########
+##2.3 Global Moran'I test
+########
 
 
 
