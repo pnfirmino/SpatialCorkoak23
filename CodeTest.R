@@ -2,12 +2,19 @@ library(sf)
 library(spdep)
 library(whitebox)
 library(car)
+ibrary(spatialreg)
+library(gstat)
+
 
 ###Section 1 - Data preparation and variable calculation
 #Upload and prepare data file
-Dados_SpatialCorkOak_9_maio_l23 <- read_excel("/path/Dados_SpatialCorkOak_9_maio_l23.xlsx")
-A<-Dados_SpatialCorkOak1[which(Dados_SpatialCorkOak1$Site == "A"),] ## Select on of the 4 properties (A, B, C, D)
-A<-A[which(A$mais_velha == 0),]  ##Remove clearly older trees present in the plantation area
+Dados_SpatialCorkOak_9_maio_23 <- read_excel("/path/Dados_SpatialCorkOak_9_maio_23.xlsx")
+parcela<-Dados_SpatialCorkOak1[which(Dados_SpatialCorkOak1$Site == "A"),] ## Select on of the 4 properties (A, B, C, D) - A and B are Santarém, C and D are Castelo Branco 
+parcela<-A[which(parcela$mais_velha == 0),]  ##Remove clearly older trees present in the plantation area
+
+########
+### Variable calculation - these variable are already calculated on the sf object. Code displayed in this section is only for informative purposes
+########
 
 #1.1 Geographical position indices calculation (TPI and TRI)
 f <- matrix(1, nrow=5, ncol=5)
@@ -20,48 +27,126 @@ plot(TRI)
 # TWI calculation based on the methodology of https://vt-hydroinformatics.github.io/rgeoraster.html
   # Prepare DEM for Hydrology Analyses
   wbt_breach_depressions_least_cost(
-  dem = "/path/A_Altimetria.tif",
-  output = "/path/A_DTM_breach.tif",
+  dem = "/path/parcela_Altimetria.tif",
+  output = "/path/parcela_DTM_breach.tif",
   dist = 5,
   fill = TRUE)
   # wbt_fill_depressions_wang_and_liu(
-  dem = "/path/A_DTM_breach.tif",
-  output = "/path/A_DTM_breach_fill.tif",
+  dem = "/path/parcela_DTM_breach.tif",
+  output = "/path/parcela_DTM_breach_fill.tif",
   )
   # Visualize and correct filled sinks and breached depression
-  filled_breached <- raster(/path/A_DTM_breach_fill.tif")
+  filled_breached <- raster(/path/parcela_DTM_breach_fill.tif")
   plot(filled_breached)
     difference <- Altimetria - filled_breached
   difference[difference == 0] <- NA
   #D infinity flow accumulation (alternative flow accumulation may be calculated from D infinity method D8 Flow Accumulation)
-  wbt_d_inf_flow_accumulation("/path/A_DTM_breach_fill.tif",
+  wbt_d_inf_flow_accumulation("/path/parcela_DTM_breach_fill.tif",
                               "/path/Infinit_FlowAccum.tif")
   dinf <- raster("/path/Infinit_FlowAccum.tif")
   plot(dinf)
   #Calculate Specific Contributing Area
-  wbt_d_inf_flow_accumulation(input = "/path/A_DTM_breach_fill.tif",
+  wbt_d_inf_flow_accumulation(input = "/path/parcela_DTM_breach_fill.tif",
                             output = "/path/FlowAccum2.tif",
                             out_type = "Specific Contributing Area")
   #Calculate slope or use slope mapped tif from data
-  wbt_slope(dem = "/path/A_DTM_breach_fill.tif",
-          output = "/path/A_slope_degrees.tif",
+  wbt_slope(dem = "/path/parcela_DTM_breach_fill.tif",
+          output = "/path/parcela_slope_degrees.tif",
           units = "degrees")
   #Calculate topographic wetness index
   wbt_wetness_index(sca = "/path/FlowAccum2.tif",
-                  slope = "/path/A_slope_degrees.tif",
+                  slope = "/path/parcela_slope_degrees.tif",
                   output = "/path/TWI.tif")
-
   twi <- raster("/path/TWI.tif")
   plot(twi)
 
-#######################################
-#Calculate dimaeter related variables and attribute explanatory values to points
-
-#Considering du response variable
-
+########
+#1.3 Calculate diameter related variables and attribute explanatory values to points
+# Response variable is considered in the ways: 1) as the individual tree diameter; 2) as the basal area of a group of trees
+########
+#1.3.1 - Attribute explanatory values to points (individual tree positions)
 #Attribute exploratory variable value according to the pixel where tree is positioned
-A$Cea_1m_1px<-extract(Cea_1m,A) #Variable Example
+parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example
+########
+#1.3.2
 
+
+########
+#Section 2 - Spatial autocorrelation analysis
+#Spatial autocorrelation analysis is applied to each plot separately, with the following steps: 
+#1) Spatial matrix definition;
+#2) Spatial weights definition; 
+#3) Global Moran's I analysis
+#4) Correlogram (Moran's I statistics) analysis
+#5) Local Moran's I analysis
+
+#2.1 Spatial matrix definition
+#Although plantations are regular, trees are not at exact distances to make preferable the using of polygons for analysis.
+#Its opted using points for the analysis. Output of 2.1 is nb object.
+#Three methods are tested to choice the proper spatial matrix 
+#1) Distance based neighbours; k neighbours; Tree area of influence sobreposition
+#2.1.1 Distance base neighbours nb objects creation - Selected 8, 10 and 15m. The idea is capture links according to plantation spacing
+#dnearneigh(parcela_vivas, d1=0, d2=8)
+#dnearneigh(parcela_vivas, d1=0, d2=10)
+#dnearneigh(parcela_vivas, d1=0, d2=15)
+#2.1.2 k neighbours - Selected 4 and 8 neighbours.
+#knn2nb(knearneigh(parcela_vivas, k=4))
+#knn2nb(knearneigh(parcela_vivas, k=8))
+#2.1.3  Tree area of influence sobreposition
+#Requires 3 steps: 
+#1)Calculating individual tree area of influence;
+#2)Creating of neighbour/distance table; 
+#3)Identifying the trees with sobreposed areas of influence and providing a value for them as neighbours
+
+#2.1.3.1  Calculating individual tree area of influence, according Paulo et al. 2016
+parcela_vivas$du_dug<-""
+parcela_vivas$du_dug<-parcela_vivas$du/(sqrt(sum((parcela_vivas$du)^2)/length(parcela_vivas$du)))
+parcela_vivas$du_dug<-as.numeric(parcela_vivas$du_dug)
+parcela_vivas$influence_area_est<-2.5*(28.502*exp((-66.436+4.201*(parcela_vivas$du_dug))/(19.817+parcela_vivas$du))/2) 
+plot(parcela_vivas["influence_area_est"],pch=16)
+
+#2.1.3.2 
+xy=st_coordinates(parcela_vivas)
+matrix<-dist(xy, "euclidean") #Calculas as distancias em classe dist
+matrix=as.matrix(matrix, labels=TRUE) #Passa o objecto de classe dist para matriz
+colnames(matrix) <- rownames(matrix) <- parcela_vivas$continId
+melt <- melt(matrix) #desfaz a matrix em colunas apenas
+summary(melt)
+
+M101<-data.frame(parcela_vivas)
+melt_0<-melt[which(melt$value!=0),]  
+submelt01<-melt[melt_0$Var1 %in% M101$continId & melt_0$Var2 %in% M101$continId,]
+submelt01<-submelt01[which(submelt01$value<33),] #33m is the highest distance between two neighbouring trees. THis conditions fastens the process
+submelt01<-submelt01[which(submelt01$value!=0),]
+mt<-merge(submelt01, M101[,c("continId","influence_area_est" )], by.x="Var1", by.y="continId") #Criar uma coluna de diametros para a Var1, dependendo do numero da arvore
+mtt<-merge(mt, M101[,c("continId","influence_area_est" )], by.x="Var2", by.y="continId")  #Criar uma coluna de diametros para a Var2, dependendo do numero da arvore
+names(mtt)<-c(names(mtt)[1:3], "influence_area_est2",  "influence_area_est1") #mudar os nomes das colunas da novas da dataframe
+head(mtt)
+matrixA<-matrix(nrow=832, ncol=832)
+for (k in c(1:nrow(mtt))){
+  valor1<-mtt[k,1]
+  valor2<-mtt[k,2]
+  linha<- mtt[k,]
+  #  matrixA[valor1,valor2]<- ifelse((linha$influence_area_est1 + linha$influence_area_est2 > linha$value),valor2,0)
+  matrixA[valor1,valor2]<- ifelse((linha$influence_area_est1 + linha$influence_area_est2 > linha$value),1,0)
+  
+}
+matrixA[is.na(matrixA)] = 0
+colnames(matrixA) <- rownames(matrixA) <- Mach_dados2$continId
+View(matrixA)
+WA<- mat2listw(matrixA)
+WAW<- mat2listw(matrixA,style = "W")
+
+
+
+
+
+
+
+
+
+
+1.3.2
 #######################################
 #Considering du_mean response variable
 
