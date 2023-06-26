@@ -150,7 +150,7 @@ plot(knn2nb(knearneigh(parcela_vivas, k=8)), coord=(parcela_vivas$geometry), col
 plot(W,coord=(parcela_vivas$geometry),col="red"); title(main=paste("Area of Influence approach"),cex.main=2)
 
 ######
-Evaluation: 
+#Evaluation: 
 #8m distance and k=4 neighbours seem to underestimate the amount of links per tree
 #15m distance seems to overestimate the amount of links per tree    
 #10 distance and k=8 seem to have a most realistic number and distribution of neighbours
@@ -165,8 +165,8 @@ Evaluation:
 ##Three methods are tested to choose weights: 1) row-normalized (W); 2) Binary (B); Inverse of distance (idw)
 #The three methods generate distinct spatial weight matrices, an object class listw
 #Example of a previously defined nb object
-nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE, style="W) #row-normalized
-nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B") #bianry
+nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE, style="W") #row-normalized
+nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B") #binary
 nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE) #idw        
 
 #To select the most suitable weights, they are compared on the following spatial analysis functions
@@ -184,6 +184,7 @@ nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE) 
 #                k neighbours - 4             0.158       0             0.193       0             0.158       0
 #                k neighbours - 8             0.127       0             0.156       0             0.127       0
 #      Area of Influence approach              0.07   4e-05             0.102       0             0.103       0
+
 
 tabela<-data.frame()
 tabela[1,1]<- "Method"
@@ -249,11 +250,70 @@ Evaluation:
 #8m distance base and k4 neighbours show slightly higher Moran's I statistics for any weights
 
 ########
-##2.3 Global Moran'I test
+##2.3 Correlogram
 ########
+par(mfrow=c(2,3))
+plot(sp.correlogram(knn2nb(knearneigh(parcela_vivas, k=4)), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="k4 neighbours")
+plot(sp.correlogram(knn2nb(knearneigh(parcela_vivas, k=8)), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="k8 neighbours")
+plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=8), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="dist 8m")
+plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=10), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="dist 10m")
+plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=15), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35) ,main="dist 15m")
+plot(sp.correlogram(W$neighbours, parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35) ,main="Area of Influence")
 
+#######
+Evaluation:
+#Lower k neighbours or distance show highest error bars, values tend to stay similar in lags
+#K-neighbours and distance approach tend to show similar results
+#Area of influence approach produce distinct results. Its more difficult to explain the lag system with this nb object
+#Checking Area of influence approach correlogram $cardnos argument show very variable number of neighbours
 
+########
+##2.4 Local Moran's I plot
+########
+#A plot can be created to check 1) the precision of the higher and lower clusters; 2) if they clusters are in accordance to field observations
+#A plot is created for the six neighbours approaches used before
 
+localm<-localmoran(parcela_vivas$du, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du, listw=WW,alternative = "greater")
+
+#Prepare an object for the plot
+local_plot<-parcela_vivas  
+quadrant <- vector(mode = "numeric", length = nrow(localm)) #prepares a vector to receive a categorical value according to each quadrant
+m.qualification <- local_plot$du - mean(local_plot$du) # centers the variable of interest around its mean
+m.local <- localm[, "Ii"] - mean(na.omit(localm[, "Ii"])) # centers the local Moran's around the mean
+signif <- 0.1# significance threshold - important for minimizing the outliers low-low and high-high  
+
+# builds a data quadrant
+quadrant[m.qualification > 0 & m.local > 0] <- 4 #high-high values
+quadrant[m.qualification < 0 & m.local < 0] <- 1 #low-low values
+quadrant[m.qualification < 0 & m.local > 0] <- 2 #low-high values
+quadrant[m.qualification > 0 & m.local < 0] <- 3 #high-low values
+quadrant[localm[, "Pr(z > 0)"] > signif] <- 0 #other values
+
+# plot in r
+brks <- c(0, 1, 2, 3, 4)
+colors <- c("grey", "black", "orange", "red", "darkgreen")
+plot(local_plot[1],  col = colors[findInterval(quadrant, brks, all.inside = FALSE)],  pch = c(1, 18, 16, 16, 16)[as.factor(quadrant)])
+legend("bottomleft", legend = c("insignificant","low-low","low-high","high-low","high-high"),fill=colors,bty="n")
+
+#######
+Evaluation:
+#k-4 and 8m dist produces a plot with low focus in comparing to others. This is most relevant for plot A, where there is less spatial autocorrelation
+#k-8, 10m, and 15m seem to produce intended clusters, with a tradeoff in precision/clusters size
+#Area of influence approach fails at plotting realistic clusters
+
+##################################################################################################################################
+#### Spatial weights matrix selection according to results from neighbours network, correlogram, global moran's I and local moran's I.
+#nb neighbours network --  k4, dist 8m, dist 15m and AIA were considered less adequate
+#correlograms -- k4, dist 8m and AIA were considered less adequate        
+#Global Moran's I test -- AIA was considered less adequate   
+#Local Moran's I test -- k4, dist 8m and AIA were considered less adequate     
+
+#Due to potentially being more accurate/balanced in describing the data, two spatial matrices will continue to the modelling phase: k-8 and dist 10m.
 
 
 
