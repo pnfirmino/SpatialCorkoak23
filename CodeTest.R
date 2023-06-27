@@ -10,8 +10,9 @@ library(gstat)
 ########
 #Upload and prepare data file
 Dados_SpatialCorkOak_9_maio_23 <- read_excel("/path/Dados_SpatialCorkOak_9_maio_23.xlsx")
+Dados_SpatialCorkoak1<-st_as_sf(Dados_SpatialCorkoak1, coords=c("coordsX","coordsY"))
 parcela<-Dados_SpatialCorkOak1[which(Dados_SpatialCorkOak1$Site == "A"),] ## Select on of the 4 properties (A, B, C, D) - A and B are Santarém, C and D are Castelo Branco 
-parcela<-parcela[which(parcela$mais_velha == 0),]  ##Remove clearly older trees present in the plantation area
+parcela_vivas<-parcela[which(parcela$mais_velha == 0),]  ##Remove clearly older trees present in the plantation area
 
 
 ##1. Variable calculation - these variable are already calculated on the sf object. Code displayed in this section is only for informative purposes
@@ -382,8 +383,8 @@ for(i in c(1:dim(parcela)[1])) {
   ifelse(arvsuj[i,15] %in% lista | arv2[i,15]%in% lista,
     
     print(paste0("Repetido",i)),{
-    a<-c(arvsuj[i,15],arv1[i,15],arv2[i,15],arv3[i,15],arv4[i,15],
-              arv5[i,15],arv6[i,15],arv7[i,15],arv8[i,15])
+    a<-c(arvsuj[i,"continId"],arv1[i,"continId"],arv2[i,"continId"],arv3[i,"continId"],arv4[i,"continId"],
+              arv5[i,"continId"],arv6[i,"continId"],arv7[i,"continId"],arv8[i,"continId"])
     lista <- c(lista, a)
 
      b<-data.frame(matrix(NA,  ncol = 1))
@@ -408,9 +409,9 @@ for(i in c(1:dim(parcela)[1])) {
      b$cos_asp<-((arvsuj[i,"cos_aspect_1px"]+arv1[i,"cos_aspect_1px"]+arv2[i,"cos_aspect_1px"]+arv3[i,"cos_aspect_1px"]+
                                    arv4[i,"cos_aspect_1px"]+arv5[i,"cos_aspect_1px"]+arv6[i,"cos_aspect_1px"]+arv7[i,"cos_aspect_1px"]+
                                    arv8[i,"cos_aspect_1px"])/9)
-     b$altim_rel<-((arvsuj[i,"altim_rel"]+arv1[i,"altim_rel"]+arv2[i,"altim_rel"]+arv3[i,"altim_rel"]+
-                                     arv4[i,"altim_rel"]+arv5[i,"altim_rel"]+arv6[i,"altim_rel"]+arv7[i,"altim_rel"]+
-                                     arv8[i,"altim_rel"])/9)
+     b$Elev<-((arvsuj[i,"Elev"]+arv1[i,"Elev_1px"]+arv2[i,"Elev_1px"]+arv3[i,"Elev_1px"]+
+                                     arv4[i,"Elev_1px"]+arv5[i,"Elev_1px"]+arv6[i,"Elev_1px"]+arv7[i,"Elev_1px"]+
+                                     arv8[i,"Elev_1px"])/9)
      b$TWI<-((arvsuj[i,"TWI_1px"]+arv1[i,"TWI_1px"]+arv2[i,"TWI_1px"]+arv3[i,"TWI_1px"]+
                                arv4[i,"TWI_1px"]+arv5[i,"TWI_1px"]+arv6[i,"TWI_1px"]+arv7[i,"TWI_1px"]+
                                arv8[i,"TWI_1px"])/9)
