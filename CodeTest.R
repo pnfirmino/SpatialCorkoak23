@@ -242,7 +242,7 @@ nomes<-c("Weights","Row-normalized","","Inverse Distance","", "Binary","");colna
 tabelaA<-tabela
 
 #######
-Evaluation:
+#Evaluation:
 #Generally similar results on Moran I statistics on distance based and k-neighbours spatial matrices. 
 #Area of influence method with distinct results, and depends on the plot
 #Row-normalized and Binary weights produce same results on k-neighbours methods, as expected
@@ -261,7 +261,7 @@ plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=15), parcela_vivas$du, me
 plot(sp.correlogram(W$neighbours, parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35) ,main="Area of Influence")
 
 #######
-Evaluation:
+#Evaluation:
 #Lower k neighbours or distance show highest error bars, values tend to stay similar in lags
 #K-neighbours and distance approach tend to show similar results
 #Area of influence approach produce distinct results. Its more difficult to explain the lag system with this nb object
@@ -301,7 +301,7 @@ plot(local_plot[1],  col = colors[findInterval(quadrant, brks, all.inside = FALS
 legend("bottomleft", legend = c("insignificant","low-low","low-high","high-low","high-high"),fill=colors,bty="n")
 
 #######
-Evaluation:
+#Evaluation:
 #k-4 and 8m dist produces a plot with low focus in comparing to others. This is most relevant for plot A, where there is less spatial autocorrelation
 #k-8, 10m, and 15m seem to produce intended clusters, with a tradeoff in precision/clusters size
 #Area of influence approach fails at plotting realistic clusters
@@ -315,14 +315,131 @@ Evaluation:
 
 #Due to potentially being more accurate/balanced in describing the data, two spatial matrices will continue to the modelling phase: k-8 and dist 10m.
 
+########
+##3. Modelling
+########
+#Section 3 - Non-spatial and spatial modelling
+#Non-spatial and spatial models will be fitted to each plot separately, and to all data, with the following steps: 
+#1) Non-spatial linear modelling - Individual tree and tree group methods
+#2) Spatial linear modelling; 
+
+########
+##3.1 Non-spatial modelling 
+########
+##3.3.1 Individual tree linear modelling
+########                
+X<-parcela_vivas
+st_geometry(X)=NULL
+f<-(du~Cea_0.5m_1px+Cea_1m_1px+Altimetria_1px+slope_1px+cos_aspect_1px+TRI_1px+TPI_1px+TWI_1px)
+
+#Automatic stepwise selection of variables
+mod<-(step(lm(f, data=X)))
+summary(mod); 
+vif(mod);
+plot(mod)
+
+#Manual selection of variables - add biological interpretation to variable selection
+summary(lm(du~Cea_0.5m_1px+Cea_1m_1px+ TPI_tree_1px+TWI_tree_1px, data=X))
+
+########
+##3.3.2  Group linear modelling
+######## 
+###Two methods were tested for creat tree group units: 1) groups of k-8 neighbours (groups of 9 trees); 2) groups by intersection of tree in fixed area grids.
+
+
+             
+
+arvsuj <- data.frame(matrix(NA,  ncol = dim(parcela)[2]))
+arv1 <- data.frame(matrix(NA,  ncol = dim(parcela)[2]))
+arv2 <- data.frame(matrix(NA,  ncol = dim(parcela)[2]))
+arv3 <- data.frame(matrix(NA,  ncol = dim(parcela)[2]))
+arv4 <- data.frame(matrix(NA,  ncol = dim(parcela)[2]))
+arv5 <- data.frame(matrix(NA,  ncol = dim(parcela)[2]))
+arv6 <- data.frame(matrix(NA,  ncol = dim(parcela)[2]))
+arv7 <- data.frame(matrix(NA,  ncol = dim(parcela)[2]))
+arv8 <- data.frame(matrix(NA,  ncol = dim(parcela)[2]))
+
+polygon_list <- list()
+combined_pol <- st_polygon()
+c<-data.frame()
+lista<-c()
+arvores<-c()
+
+for(i in c(1:dim(parcela)[1])) {
+ arvsuj[i,]<-parcela[i,]
+ arv1[i,]<-(parcela[which(parcela$continId == ((knearneigh(parcela, k=8)$nn[i]))),])
+ arv2[i,]<-(parcela[which(parcela$continId == ((knearneigh(parcela, k=8)$nn[i,2]))),])
+ arv3[i,]<-(parcela[which(parcela$continId == ((knearneigh(parcela, k=8)$nn[i,3]))),])
+ arv4[i,]<-(parcela[which(parcela$continId == ((knearneigh(parcela, k=8)$nn[i,4]))),])
+ arv5[i,]<-(parcela[which(parcela$continId == ((knearneigh(parcela, k=8)$nn[i,5]))),])
+ arv6[i,]<-(parcela[which(parcela$continId == ((knearneigh(parcela, k=8)$nn[i,6]))),])
+ arv7[i,]<-(parcela[which(parcela$continId == ((knearneigh(parcela, k=8)$nn[i,7]))),])
+ arv8[i,]<-(parcela[which(parcela$continId == ((knearneigh(parcela, k=8)$nn[i,8]))),])
+  
+ colnames(arvsuj)<-colnames(arv1)<-colnames(arv2)<-colnames(arv3)<-colnames(arv4)<-
+   colnames(arv5)<-colnames(arv6)<-colnames(arv7)<-colnames(arv8)<-colnames(parcela)
+
+  ifelse(arvsuj[i,15] %in% lista | arv2[i,15]%in% lista,
+    
+    print(paste0("Repetido",i)),{
+    a<-c(arvsuj[i,15],arv1[i,15],arv2[i,15],arv3[i,15],arv4[i,15],
+              arv5[i,15],arv6[i,15],arv7[i,15],arv8[i,15])
+    lista <- c(lista, a)
+
+     b<-data.frame(matrix(NA,  ncol = 1))
+     b$id<- arvsuj[i,"id"]
+     b$continId<-arvsuj[i,"continId"]
+     b$BA<-arvsuj[i,"du"]+arv1[i,"du"]+arv2[i,"du"]+arv3[i,"du"]+arv4[i,"du"]+arv5[i,"du"]+arv6[i,"du"]+arv7[i,"du"]+ arv8[i,"du"]
+     b$CEa_0.5<-(arvsuj[i,"Cea_0.5m_1px"]+arv1[i,"Cea_0.5m_1px"]+arv2[i,"Cea_0.5m_1px"]+arv3[i,"Cea_0.5m_1px"]+
+               arv4[i,"Cea_0.5m_1px"]+arv5[i,"Cea_0.5m_1px"]+arv6[i,"Cea_0.5m_1px"]+arv7[i,"Cea_0.5m_1px"]+
+               arv8[i,"Cea_0.5m_1px"]/9)
+     b$CEa_1<-((arvsuj[i,"Cea_1m_1px"]+arv1[i,"Cea_1m_1px"]+arv2[i,"Cea_1m_1px"]+arv3[i,"Cea_1m_1px"]+
+                   arv4[i,"Cea_1m_1px"]+arv5[i,"Cea_1m_1px"]+arv6[i,"Cea_1m_1px"]+arv7[i,"Cea_1m_1px"]+
+                   arv8[i,"Cea_1m_1px"])/9)
+     b$TRI<-((arvsuj[i,"TRI_1px"]+arv1[i,"TRI_1px"]+arv2[i,"TRI_1px"]+arv3[i,"TRI_1px"]+
+                               arv4[i,"TRI_1px"]+arv5[i,"TRI_1px"]+arv6[i,"TRI_1px"]+arv7[i,"TRI_1px"]+
+                               arv8[i,"TRI_1px"])/9)
+     b$TPI<-((arvsuj[i,"TPI_1px"]+arv1[i,"TPI_1px"]+arv2[i,"TPI_1px"]+arv3[i,"TPI_1px"]+
+                               arv4[i,"TPI_1px"]+arv5[i,"TPI_1px"]+arv6[i,"TPI_1px"]+arv7[i,"TPI_1px"]+
+                               arv8[i,"TPI_1px"])/9)
+     b$slope<-((arvsuj[i,"slope_1px"]+arv1[i,"slope_1px"]+arv2[i,"slope_1px"]+arv3[i,"slope_1px"]+
+                                   arv4[i,"slope_1px"]+arv5[i,"slope_1px"]+arv6[i,"slope_1px"]+arv7[i,"slope_1px"]+
+                                   arv8[i,"slope_1px"])/9)
+     b$cos_asp<-((arvsuj[i,"cos_aspect_1px"]+arv1[i,"cos_aspect_1px"]+arv2[i,"cos_aspect_1px"]+arv3[i,"cos_aspect_1px"]+
+                                   arv4[i,"cos_aspect_1px"]+arv5[i,"cos_aspect_1px"]+arv6[i,"cos_aspect_1px"]+arv7[i,"cos_aspect_1px"]+
+                                   arv8[i,"cos_aspect_1px"])/9)
+     b$altim_rel<-((arvsuj[i,"altim_rel"]+arv1[i,"altim_rel"]+arv2[i,"altim_rel"]+arv3[i,"altim_rel"]+
+                                     arv4[i,"altim_rel"]+arv5[i,"altim_rel"]+arv6[i,"altim_rel"]+arv7[i,"altim_rel"]+
+                                     arv8[i,"altim_rel"])/9)
+     b$TWI<-((arvsuj[i,"TWI_1px"]+arv1[i,"TWI_1px"]+arv2[i,"TWI_1px"]+arv3[i,"TWI_1px"]+
+                               arv4[i,"TWI_1px"]+arv5[i,"TWI_1px"]+arv6[i,"TWI_1px"]+arv7[i,"TWI_1px"]+
+                               arv8[i,"TWI_1px"])/9)
+      b$geometry<-arvsuj[i,"geometry"]
+      b<-b[,-1]
+      c<-rbind(c,b)
+      arvores<-rbind(arvores,c)
+      c<-data.frame()
+
+      arv_neigh<-rbind(arvsuj[i,],arv1[i,],arv2[i,],arv3[i,],arv4[i,],arv5[i,],arv6[i,],arv7[i,],arv8[i,])
+      arv_neigh<-st_as_sf(arv_neigh)
+      st_crs(arv_neigh)
+
+      points_matrix <- as.matrix(st_coordinates(arv_neigh))
+      hull_indices <- chull(points_matrix)
+      convex_hull_points <- points_matrix[hull_indices, ]
+      convex_hull_points <- rbind(convex_hull_points, convex_hull_points[1, ])
+      polygon <- st_polygon(list(convex_hull_points))
+      polygon_list[[i]]<- polygon 
+ })
+}
+combined_polygon <- st_sfc(polygon_list)
+combined_polygon <- combined_polygon[!st_is_empty(combined_polygon),drop=FALSE]
+plot(combined_polygon,col=rainbow(length(combined_polygon)))
 
 
 
 
-
-
-
-
+             
 1.3.2
 #######################################
 #Considering du_mean response variable
