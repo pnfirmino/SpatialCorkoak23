@@ -12,9 +12,9 @@ library(gstat)
 Dados_SpatialCorkoak<-read_excel("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2023-Doutoramento/SpatialCorkoak/Dados_SpatialCorkOak.xlsx")
 Dados_SpatialCorkoak<-st_as_sf(Dados_SpatialCorkoak, coords=c("coordsX","coordsY"))
 parcela<-Dados_SpatialCorkOak[which(Dados_SpatialCorkOak$Site == "A"),] ## Select on of the 4 properties (A, B, C, D) - A and B are Santarém, C and D are Castelo Branco 
+parcela<-st_as_sf(parcela, coords=c("coordsX","coordsY"),crs = 3763) #transform to sf object
 parcela<-parcela[which(parcela$mais_velha == 0),]  ##Remove clearly older trees present in the plantation area
 parcela_vivas<-parcela[which(parcela$Morta == 0),]  ##Remove dead trees
-
 #"parcela_vivas" will be used when considering individual trees, #parcela# will be used when considering the group of trees approach 
 
 ##1. Variable calculation - Dependent and independent variables
@@ -23,47 +23,29 @@ parcela_vivas<-parcela[which(parcela$Morta == 0),]  ##Remove dead trees
 
 #1.1.1 Geographical position indices calculation (TPI and TRI)
 f <- matrix(1, nrow=5, ncol=5)
-TPI <- focal(Altimetria, w=f, fun=function(x, ...) x[5] - mean(x[-5]), pad=TRUE, padValue=NA)
-plot(TPI)
-TRI <- focal(Altimetria, w=f, fun=function(x) sum(abs(x[-5]-x[5]))/8, pad=TRUE, padValue=NA)
-plot(TRI)
+TPI <- focal(Altimetria, w=f, fun=function(x, ...) x[5] - mean(x[-5]), pad=TRUE, padValue=NA);plot(TPI)
+TRI <- focal(Altimetria, w=f, fun=function(x) sum(abs(x[-5]-x[5]))/8, pad=TRUE, padValue=NA);plot(TRI)
 
 #1.1.2 Geographical position indices calculation (TWI)
 # TWI calculation based on the methodology of https://vt-hydroinformatics.github.io/rgeoraster.html
   # Prepare DEM for Hydrology Analyses
-  wbt_breach_depressions_least_cost(
-  dem = "/path/parcela_Altimetria.tif",
-  output = "/path/parcela_DTM_breach.tif",
-  dist = 5,
-  fill = TRUE)
-  # wbt_fill_depressions_wang_and_liu(
-  dem = "/path/parcela_DTM_breach.tif",
-  output = "/path/parcela_DTM_breach_fill.tif",
-  )
+  wbt_breach_depressions_least_cost(dem = "/path/parcela_Altimetria.tif", output = "/path/parcela_DTM_breach.tif", dist = 5,  fill = TRUE)
+  wbt_fill_depressions_wang_and_liu(dem = "/path/parcela_DTM_breach.tif",output = "/path/parcela_DTM_breach_fill.tif")
   # Visualize and correct filled sinks and breached depression
-  filled_breached <- raster(/path/"parcela_DTM_breach_fill.tif")
+  filled_breached <- raster("/path/parcela_DTM_breach_fill.tif")
   plot(filled_breached)
     difference <- Altimetria - filled_breached
   difference[difference == 0] <- NA
   #D infinity flow accumulation (alternative flow accumulation may be calculated from D infinity method D8 Flow Accumulation)
-  wbt_d_inf_flow_accumulation("/path/parcela_DTM_breach_fill.tif",
-                              "/path/Infinit_FlowAccum.tif")
-  dinf <- raster("/path/Infinit_FlowAccum.tif")
-  plot(dinf)
+  wbt_d_inf_flow_accumulation("/path/parcela_DTM_breach_fill.tif","/path/Infinit_FlowAccum.tif")
+  dinf <- raster("/path/Infinit_FlowAccum.tif");  plot(dinf)
   #Calculate Specific Contributing Area
-  wbt_d_inf_flow_accumulation(input = "/path/parcela_DTM_breach_fill.tif",
-                            output = "/path/FlowAccum2.tif",
-                            out_type = "Specific Contributing Area")
+  wbt_d_inf_flow_accumulation(input = "/path/parcela_DTM_breach_fill.tif",output = "/path/FlowAccum2.tif", out_type = "Specific Contributing Area")
   #Calculate slope or use slope mapped tif from data
-  wbt_slope(dem = "/path/parcela_DTM_breach_fill.tif",
-          output = "/path/parcela_slope_degrees.tif",
-          units = "degrees")
+  wbt_slope(dem = "/path/parcela_DTM_breach_fill.tif",output = "/path/parcela_slope_degrees.tif",units = "degrees")
   #Calculate topographic wetness index
-  wbt_wetness_index(sca = "/path/FlowAccum2.tif",
-                  slope = "/path/parcela_slope_degrees.tif",
-                  output = "/path/TWI.tif")
-  twi <- raster("/path/TWI.tif")
-  plot(twi)
+  wbt_wetness_index(sca = "/path/FlowAccum2.tif",slope = "/path/parcela_slope_degrees.tif", output = "/path/TWI.tif")              
+  twi <- raster("/path/TWI.tif");  plot(twi)
 
 ########
 #1.2 Dependent variables - Calculate diameter related variables and attribute explanatory values to points
@@ -72,7 +54,8 @@ plot(TRI)
 #Annual growth is considered so that all plots are normalized by age
 ########
 #1.2.1 - Individual diameter annual growth
-#Already calculated in dataframe as column "du_annual_growth"          
+#Already calculated in dataframe as column "du_annual_growth"
+             
 #Attribute exploratory variable value according to the pixel where tree is positioned
 parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example, already on the dataframe
              
@@ -80,19 +63,20 @@ parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example, already on the da
 #1.2.2 - Basal area annual growth of a group of closely located trees
 parcela$BA<-pi*(parcela$du^2)/4      #Individual tree basal area
 parcela$annual_BA<-(pi*(parcela$du^2)/4)/parcela$t  #Annual growth in individual tree basal area (BA/t).
-       
-             
-#Requires the definition of the tree groups. Tree may be grouped by a fixed number of individuals or by a fixed area
-#1.2.2.1 # Definition of groups according to the 8 closest neighbours to a subject tree.
+
+########                  
+##Requires the definition of the tree groups. Trees may be grouped by a fixed number of individuals or by a fixed area
+#1.2.2.1 - Definition of groups according to the 8 closest neighbours to a subject tree.
              
 #Order the dataframe by tree coordinates. This is required to produce the best results in grouping, avoiding huge polygon when few individuals are still available.        
-par<- parcela
+par <- parcela
 xy = st_coordinates(par)
 par = par[order(xy[,"X"], xy[,"Y"]),] #produces a modified sf object (ordered coordinates) to use for this part
 
-polygon_list <- list() #prepares empty objects to be used on the cycle
+#Prepares empty objects to be used on the cycle
+polygon_list <- list() 
 combined_pol <- st_polygon()
-arvores<-dataframe()
+arvores<-data.frame()
 
 #Cycle to create polygons representing the groups. Output generated by cycle:
   #1) "arvores" object, with the dataframe of tree groups, with basal area and independent variables    
@@ -154,29 +138,28 @@ for(i in c(1:235)) {
   b$TRI<-((arvsuj[1,"TRI_1px"]+arv1[1,"TRI_1px"]+arv2[1,"TRI_1px"]+arv3[1,"TRI_1px"]+
              arv4[1,"TRI_1px"]+arv5[1,"TRI_1px"]+arv6[1,"TRI_1px"]+arv7[1,"TRI_1px"]+
              arv8[1,"TRI_1px"])/9)
-  b$TPI<-((arvsuj[1,"TPI_1px"]+arv1[1,"TPI_1px"]+arv2[1,"TPI_1px"]+arv3[1,"TPI_1px"]+
-             arv4[1,"TPI_1px"]+arv5[1,"TPI_1px"]+arv6[1,"TPI_1px"]+arv7[1,"TPI_1px"]+
-             arv8[1,"TPI_1px"])/9)
+  b$TPI<-((arvsuj[1,"TPI_1px"]+arv1[1,"TPI_tree_1px"]+arv2[1,"TPI_tree_1px"]+arv3[1,"TPI_tree_1px"]+
+             arv4[1,"TPI_tree_1px"]+arv5[1,"TPI_tree_1px"]+arv6[1,"TPI_tree_1px"]+arv7[1,"TPI_tree_1px"]+
+             arv8[1,"TPI_tree_1px"])/9)
   b$slope<-((arvsuj[1,"slope_1px"]+arv1[1,"slope_1px"]+arv2[1,"slope_1px"]+arv3[1,"slope_1px"]+
                arv4[1,"slope_1px"]+arv5[1,"slope_1px"]+arv6[1,"slope_1px"]+arv7[1,"slope_1px"]+
                arv8[1,"slope_1px"])/9)
   b$cos_asp<-((arvsuj[1,"cos_aspect_1px"]+arv1[1,"cos_aspect_1px"]+arv2[1,"cos_aspect_1px"]+arv3[1,"cos_aspect_1px"]+
                  arv4[1,"cos_aspect_1px"]+arv5[1,"cos_aspect_1px"]+arv6[1,"cos_aspect_1px"]+arv7[1,"cos_aspect_1px"]+
                  arv8[1,"cos_aspect_1px"])/9)
-  b$Elev<-((arvsuj[1,"Elev_1px"]+arv1[1,"Elev_1px"]+arv2[1,"Elev_1px"]+arv3[1,"Elev_1px"]+
-              arv4[1,"Elev_1px"]+arv5[1,"Elev_1px"]+arv6[1,"Elev_1px"]+arv7[1,"Elev_1px"]+
-              arv8[1,"Elev_1px"])/9)
-  b$TWI<-((arvsuj[1,"TWI_1px"]+arv1[1,"TWI_1px"]+arv2[1,"TWI_1px"]+arv3[1,"TWI_1px"]+
-             arv4[1,"TWI_1px"]+arv5[1,"TWI_1px"]+arv6[1,"TWI_1px"]+arv7[1,"TWI_1px"]+
-             arv8[1,"TWI_1px"])/9)
+  b$Elev<-((arvsuj[1,"Altimetria_1px"]+arv1[1,"Altimetria_1px"]+arv2[1,"Altimetria_1px"]+arv3[1,"Altimetria_1px"]+
+              arv4[1,"Altimetria_1px"]+arv5[1,"Altimetria_1px"]+arv6[1,"Altimetria_1px"]+arv7[1,"Altimetria_1px"]+
+              arv8[1,"Altimetria_1px"])/9)
+  b$TWI<-((arvsuj[1,"TWI_tree_1px"]+arv1[1,"TWI_tree_1px"]+arv2[1,"TWI_tree_1px"]+arv3[1,"TWI_tree_1px"]+
+             arv4[1,"TWI_tree_1px"]+arv5[1,"TWI_tree_1px"]+arv6[1,"TWI_tree_1px"]+arv7[1,"TWI_tree_1px"]+
+             arv8[1,"TWI_tree_1px"])/9)
   b$geometry<-arvsuj[1,"geometry"]
   b<-b[,-1]  #removes the useless NA col
   arvores<-rbind(arvores,b) #stores each line on the object arvores
 
   #Creates a polygon that overlays all 9 points
   arv_neigh<-rbind(arvsuj[1,],arv1[1,],arv2[1,],arv3[1,],arv4[1,],arv5[1,],arv6[1,],arv7[1,],arv8[1,])
-  arv_neigh<-st_as_sf(arv_neigh)
-  st_crs(arv_neigh)<-st_crs(parcela)
+  arv_neigh<-st_as_sf(arv_neigh,crs=3763)
   points_matrix <- as.matrix(st_coordinates(arv_neigh))
   hull_indices <- chull(points_matrix) #creates a convex hull
   convex_hull_points <- points_matrix[hull_indices, ]
@@ -190,8 +173,6 @@ combined_polygon <- st_sfc(polygon_list)
 combined_polygon <- combined_polygon[!st_is_empty(combined_polygon),drop=FALSE] #removes any generated empty geometry
 #combined_polygon$area<-st_area(combined_polygon);combined_polygon<-combined_polygon[which(combined_polygon$area < 200)] #area may be used to remove huge polygon, not used in this version
 #Plot points and polygons
-plot(parcela["Site"])
-plot(combined_polygon,col=rainbow(length(combined_polygon)),add=TRUE)
 graph<-(ggplot() +  geom_sf(data = combined_polygon, col="darkgreen",fill="orange",size=1.2)+ geom_point(data = parcela, aes(x = st_coordinates(parcela)[,1], y = st_coordinates(parcela)[,2])))
 graph
 
