@@ -75,10 +75,9 @@ parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example, already on the da
              
 ########
 #1.2.2 - Basal area annual growth of a group of closely located trees
-
 #Requires the definition of the tree groups. Tree may be grouped by a fixed number of individuals or by a fixed area
 #1.2.2.1 # Definition of groups according to the 8 closest neighbours to a subject tree.
-"du_annual_growth" 
+
 
 #Order the dataframe by tree coordinates. This is required to produce the best results in grouping, avoiding huge polygon when few individuals are still available.        
 par<- parcela
@@ -191,7 +190,41 @@ graph<-(ggplot() +  geom_sf(data = combined_polygon_corr, col="darkgreen",fill="
 graph
 
              
-
+#1.2.2.2 # Definition of groups according fixed sized area. *Only informative purpose*
+#Cell size was tried for combinations 10x8, 16x8, 20x10, 20x15, 20x20, depending on tree spacing. Idea is to have similar number of trees per unit: 4-6 trees; 7-9; 9-12    
+grid1<-st_make_grid(parcela, cellsize=c(15,20))
+#plot(st_intersection(grid[140], Mach_dados1)) 
+a_parc<-st_sf(st_sfc())
+for(i in c(1:length(grid1))) {
+  pol<-st_crop(parcela, grid1[i])
+  pol2<-length(pol$id)
+  pol3<-sum(pol$du)
+  pol4<-mean(pol$Cea_0.5m_1px)
+  pol5<-mean(pol$Cea_1m_1px)
+  pol6<-mean(pol$slope_1px)
+  pol7<-mean(pol$Altimetria_1px)
+  pol8<-mean(pol$TRI_1px)
+  pol9<-mean(pol$TPI_1px)
+  pol10<-mean(pol$cos_aspect_1px)
+  pol11<-mean(pol$TWI_1px)
+  
+  a_parc[i,]<-merge(grid1[i],pol3)
+  a_parc[i,2]<-pol2
+  a_parc[i,3]<-pol3
+  a_parc[i,4]<-pol4
+  a_parc[i,5]<-pol5
+  a_parc[i,6]<-pol6
+  a_parc[i,7]<-pol7
+  a_parc[i,8]<-pol8
+  a_parc[i,9]<-pol9
+  a_parc[i,10]<-pol10
+  a_parc[i,11]<-pol11
+}
+a_parc<-na.omit(a_parc)
+a_parc$V2<-as.numeric(a_parc$V2)
+plot(a_parc["V2"],main="Tree_Count")
+a_parc$V3<-as.numeric(a_parc$V3)
+plot(a_parc["V3"],main="Tree_BA")
   
   
 ########
