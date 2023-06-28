@@ -171,7 +171,8 @@ for(i in c(1:235)) {
 #Prepares to plot all the polygons
 combined_polygon <- st_sfc(polygon_list)
 combined_polygon <- combined_polygon[!st_is_empty(combined_polygon),drop=FALSE] #removes any generated empty geometry
-#combined_polygon$area<-st_area(combined_polygon);combined_polygon<-combined_polygon[which(combined_polygon$area < 200)] #area may be used to remove huge polygon, not used in this version
+combined_polygon$area<-st_area(combined_polygon)
+combined_polygon<-combined_polygon[which(combined_polygon$area < 200)] #area may be used to remove huge polygon
 #Plot points and polygons
 graph<-(ggplot() +  geom_sf(data = combined_polygon, col="darkgreen",fill="orange",size=1.2)+ geom_point(data = parcela, aes(x = st_coordinates(parcela)[,1], y = st_coordinates(parcela)[,2])))
 graph
@@ -272,6 +273,7 @@ parcela_vivas$influence_area_est<-2.5*(28.502*exp((-66.436+4.201*(parcela_vivas$
 plot(parcela_vivas["influence_area_est"],pch=16)
 
 #2.1.3.2 Creating of neighbour/distance table; 
+parcela_vivas$continId<-c(1:dim(parcela_vivas)[1])#remake the continId for parcela_vivas, after removing dead elements
 xy<-st_coordinates(parcela_vivas)
 matrix<-as.matrix(dist(xy, "euclidean"), labels=TRUE) #Distance matrix
 colnames(matrix) <- rownames(matrix) <- parcela_vivas$continId #Name rows and columns
@@ -287,7 +289,7 @@ names(mtt)<-c(names(mtt)[1:3], "influence_area_est2",  "influence_area_est1") #c
 head(mtt)
 
 #2.1.3.3 Identifying the trees with sobreposed areas of influence and providing a value for them as neighbours
-matrix<-matrix(nrow=length(parcela_vivas), ncol=length(parcela_vivas)) #starts a blank matrix for the cycle
+matrix<-matrix(nrow=dim(parcela_vivas)[1], ncol=dim(parcela_vivas)[1]) #starts a blank matrix for the cycle
 for (k in c(1:nrow(mtt))){ 
   valor1<-mtt[k,1]
   valor2<-mtt[k,2]
@@ -299,8 +301,22 @@ for (k in c(1:nrow(mtt))){
 
 matrix[is.na(matrix)] = 0 #turns NA to zeros
 colnames(matrix) <- rownames(matrix) <- parcela_vivas$continId #give names to new matrix
-View(matrix) #check if result is correct
-W<- mat2listw(matrix) #creates a listw object from this matrix, ready to be applied.
+#View(matrix) #check if result is correct
+W<- mat2listw(matrix) #creates a listw object from this matrix, ready to be applied, with style=matrix itself.
+WW<-mat2listw(matrix,style = "W")
+
+###Repeat the cycle about attribute the distance between instead of 1. 
+matrix<-matrix(nrow=dim(parcela_vivas)[1], ncol=dim(parcela_vivas)[1]) #starts a blank matrix for the cycle
+for (k in c(1:nrow(mtt))){ 
+  valor1<-mtt[k,1]
+  valor2<-mtt[k,2]
+  linha<- mtt[k,]
+  matrix[valor1,valor2]<- ifelse((linha$influence_area_est1 + linha$influence_area_est2 > linha$value),linha$value,0)
+}
+matrix[is.na(matrix)] = 0 #turns NA to zeros
+colnames(matrix) <- rownames(matrix) <- parcela_vivas$continId #give names to new matrix
+#View(matrix) #check if result is correct
+Wdist<- mat2listw(matrix) #creates a listw object from this matrix, this time with dist as weights
 
 ####2.1.4  Plot and compare results
 par(mfrow=c(2,3));par(cex=0.4, pch=16)
@@ -329,7 +345,7 @@ plot(W,coord=(parcela_vivas$geometry),col="red"); title(main=paste("Area of Infl
 #Example of a previously defined nb object
 nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE, style="W") #row-normalized
 nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B") #binary
-nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE) #idw        
+nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE)) #idw        
 
 #To select the most suitable weights, they are compared on the following spatial analysis functions
 
@@ -401,7 +417,7 @@ tabela[7,5]<-round(moran.test(parcela_vivas$du_annual_growth,WCdist, zero.policy
 tabela[7,6]<-round(moran.test(parcela_vivas$du_annual_growth,WC, zero.policy=TRUE)$estimate[1],3)
 tabela[7,7]<-round(moran.test(parcela_vivas$du_annual_growth,WC, zero.policy=TRUE)$p.value,5)
 nomes<-c("Weights","Row-normalized","","Inverse Distance","", "Binary","");colnames(tabela)<-nomes
-tabelaA<-tabela
+#tabelaA<-tabela #save the table
 
 #######
 #Evaluation:
@@ -435,12 +451,12 @@ plot(sp.correlogram(W$neighbours, parcela_vivas$du_annual_growth, method="I" ,or
 #A plot can be created to check 1) the precision of the higher and lower clusters; 2) if they clusters are in accordance to field observations
 #A plot is created for the six neighbours approaches used before
 
-localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+#localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+#localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+#localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+#localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
 localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du_annual_growth, listw=WW,alternative = "greater")
+#localm<-localmoran(parcela_vivas$du_annual_growth, listw=WW,alternative = "greater")
 
 #Prepare an object for the plot
 local_plot<-parcela_vivas  
