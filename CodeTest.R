@@ -5,9 +5,9 @@ library(car)
 ibrary(spatialreg)
 library(gstat)
 
-########
+###############################
 ###Section 1 - Data preparation and variable calculation
-########
+###############################
 #Upload and prepare data file
 Dados_SpatialCorkOak_9_maio_23 <- read_excel("/path/Dados_SpatialCorkOak_9_maio_23.xlsx")
 Dados_SpatialCorkoak1<-st_as_sf(Dados_SpatialCorkoak1, coords=c("coordsX","coordsY"))
@@ -67,6 +67,7 @@ plot(TRI)
 #1.2 Dependent variables - Calculate diameter related variables and attribute explanatory values to points
 
 # Dependent variable is considered in the ways: 1) as the individual diameter annual growth; 2) as the basal area annual growth of a group of closely located trees
+#Annual growth is considered so that all plots are normalized by age
 ########
 #1.2.1 - Individual diameter annual growth
 #Already calculated in dataframe as column "du_annual_growth"          
@@ -75,10 +76,13 @@ parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example, already on the da
              
 ########
 #1.2.2 - Basal area annual growth of a group of closely located trees
+parcela$BA<-pi*(parcela$du^2)/4      #Individual tree basal area
+parcela$annual_BA<-(pi*(parcela$du^2)/4)/parcela$t  #Annual growth in individual tree basal area (BA/t).
+       
+             
 #Requires the definition of the tree groups. Tree may be grouped by a fixed number of individuals or by a fixed area
 #1.2.2.1 # Definition of groups according to the 8 closest neighbours to a subject tree.
-
-
+             
 #Order the dataframe by tree coordinates. This is required to produce the best results in grouping, avoiding huge polygon when few individuals are still available.        
 par<- parcela
 xy = st_coordinates(par)
@@ -138,7 +142,7 @@ for(i in c(1:235)) {
   b<-data.frame(matrix(NA,  ncol = 1))
   b$id<- arvsuj[1,"id"]
   b$continId<-arvsuj[1,"continId"]
-  b$BA<-arvsuj[1,"du"]+arv1[1,"du"]+arv2[1,"du"]+arv3[1,"du"]+arv4[1,"du"]+arv5[1,"du"]+arv6[1,"du"]+arv7[1,"du"]+ arv8[1,"du"]
+  b$BA<-arvsuj[1,"annual_BA"]+arv1[1,"annual_BA"]+arv2[1,"annual_BA"]+arv3[1,"annual_BA"]+arv4[1,"annual_BA"]+arv5[1,"annual_BA"]+arv6[1,"annual_BA"]+arv7[1,"annual_BA"]+ arv8[1,"annual_BA"]
   b$CEa_0.5<-(arvsuj[1,"Cea_0.5m_1px"]+arv1[1,"Cea_0.5m_1px"]+arv2[1,"Cea_0.5m_1px"]+arv3[1,"Cea_0.5m_1px"]+
                 arv4[1,"Cea_0.5m_1px"]+arv5[1,"Cea_0.5m_1px"]+arv6[1,"Cea_0.5m_1px"]+arv7[1,"Cea_0.5m_1px"]+
                 arv8[1,"Cea_0.5m_1px"]/9)
@@ -185,30 +189,37 @@ combined_polygon <- combined_polygon[!st_is_empty(combined_polygon),drop=FALSE] 
 #combined_polygon$area<-st_area(combined_polygon);combined_polygon<-combined_polygon[which(combined_polygon$area < 200)] #area may be used to remove huge polygon, not used in this version
 #Plot points and polygons
 plot(parcela["Site"])
-plot(combined_polygon_corr,col=rainbow(length(combined_polygon_corr)),add=TRUE)
-graph<-(ggplot() +  geom_sf(data = combined_polygon_corr, col="darkgreen",fill="orange",size=1.2)+ geom_point(data = teste, aes(x = st_coordinates(teste)[,1], y = st_coordinates(teste)[,2])))
+plot(combined_polygon,col=rainbow(length(combined_polygon)),add=TRUE)
+graph<-(ggplot() +  geom_sf(data = combined_polygon, col="darkgreen",fill="orange",size=1.2)+ geom_point(data = parcela, aes(x = st_coordinates(parcela)[,1], y = st_coordinates(parcela)[,2])))
 graph
 
-             
+######
+#Evaluation:
+#Method creates mostly similar polygon sizes, as much as the plantation spacial allows.
+#The plots seem to be well represented by the polygons, which are now independent of each other
+#Each polygon has the same number of trees, which makes a fair comparison using the sum of basal area  
+                      
 #1.2.2.2 # Definition of groups according fixed sized area. *Only informative purpose*
-#Cell size was tried for combinations 10x8, 16x8, 20x10, 20x15, 20x20, depending on tree spacing. Idea is to have similar number of trees per unit: 4-6 trees; 7-9; 9-12    
+#Cell size was tried for combinations 10x8, 16x8, 20x10, 20x15, 20x20, depending on tree spacing. Idea is to have similar number of trees per unit: 4-6 ; 7-9; 9-12.    
+
+#Sets a grid with custom size, to "cut" the are in units. Cycle output is multiply polygons object "a_parc", with values of the dependent and independent variables    
 grid1<-st_make_grid(parcela, cellsize=c(15,20))
-#plot(st_intersection(grid[140], Mach_dados1)) 
-a_parc<-st_sf(st_sfc())
+a_parc<-st_sf(st_sfc()) #create new empty object to fill by the cycle
+            
 for(i in c(1:length(grid1))) {
-  pol<-st_crop(parcela, grid1[i])
-  pol2<-length(pol$id)
-  pol3<-sum(pol$du)
+  pol<-st_crop(parcela, grid1[i])  #for each gridded unit, cuts a part of the area and gives variable values to each polygon
+  pol2<-length(pol$id) #number of trees per unit
+  pol3<-sum(pol$annual_BA)
   pol4<-mean(pol$Cea_0.5m_1px)
   pol5<-mean(pol$Cea_1m_1px)
   pol6<-mean(pol$slope_1px)
-  pol7<-mean(pol$Altimetria_1px)
+  pol7<-mean(pol$Elev_1px)
   pol8<-mean(pol$TRI_1px)
   pol9<-mean(pol$TPI_1px)
   pol10<-mean(pol$cos_aspect_1px)
   pol11<-mean(pol$TWI_1px)
   
-  a_parc[i,]<-merge(grid1[i],pol3)
+  a_parc[i,]<-merge(grid1[i],pol3) #store values of each unit on sf empty object
   a_parc[i,2]<-pol2
   a_parc[i,3]<-pol3
   a_parc[i,4]<-pol4
@@ -220,16 +231,28 @@ for(i in c(1:length(grid1))) {
   a_parc[i,10]<-pol10
   a_parc[i,11]<-pol11
 }
-a_parc<-na.omit(a_parc)
-a_parc$V2<-as.numeric(a_parc$V2)
-plot(a_parc["V2"],main="Tree_Count")
-a_parc$V3<-as.numeric(a_parc$V3)
-plot(a_parc["V3"],main="Tree_BA")
-  
-  
-########
+a_parc<-na.omit(a_parc) 
+st_geometry(a_parc)<-(a_parc[,1])
+nomes<-c("st_sfc..","Tree_Count","BA","Cea_0.5m","Cea_1m","slope","Elev","TRI","TPI","cos_asp","TWI");colnames(a_parc)<-nomes
+plot(a_parc["Tree_Count"],main="Tree_Count")
+a_parc$BA<-as.numeric(a_parc$BA);plot(a_parc["BA"],main="Tree_BA")
+
+######
+#Evaluation:
+#Method creates identical polygon sizes, independent of the plantation spacing           
+#The plots are fully represented by the polygons, which are now independent of each other
+#The number of trees inside polygons varies, and does not allow a correct usage of the sum of basal area. The alternative would have to be the mean of basal area.
+
+##################################################################################################################################
+#### Group definition method selection according to results plot representation, consistency of size and number of tree per polygon           
+#Definition of groups according to the 8 closest neighbours to a subject tree is selected to modelling phase.
+
+
+
+             
+###############################
 ##2. Spatial autocorrelation analysis
-########
+###############################
 #Section 2 - Spatial autocorrelation analysis
 #Spatial autocorrelation analysis is applied to each plot separately, with the following steps: 
 #1) Spatial matrix definition;
@@ -352,48 +375,48 @@ tabela[6,1]<- " k neighbours - 8"
 tabela[7,1]<- "Area of Influence approach"
 tabela[1,2]<-"Moran I statistic";tabela[1,3]<-"p-value";tabela[1,4]<-"Moran I statistic";tabela[1,5]<-"p-value";tabela[1,6]<-"Moran I statistic";tabela[1,7]<-"p-value";
 #distance base tests - row-normalized weights; zero.policy=TRUE must be present since there is always points with no (living) neighbours
-tabela[2,2]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
-tabela[2,3]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
-tabela[3,2]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
-tabela[3,3]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
-tabela[4,2]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
-tabela[4,3]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[2,2]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[2,3]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[3,2]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[3,3]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[4,2]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[4,3]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
 #distance base tests - inverse of distance weights; can be used nb2listwdist function
-tabela[2,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
-tabela[2,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
-tabela[3,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
-tabela[3,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
-tabela[4,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
-tabela[4,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[2,4]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[2,5]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[3,4]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[3,5]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
+tabela[4,4]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$estimate[1],3)
+tabela[4,5]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy=TRUE)$p.value,5)
 #distance base tests - binary weights
-tabela[2,6]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B"),zero.policy=TRUE)$estimate[1],3)
-tabela[2,7]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B"),zero.policy=TRUE)$p.value,5)
-tabela[3,6]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="B"),zero.policy=TRUE)$estimate[1],3)
-tabela[3,7]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="B"),zero.policy=TRUE)$p.value,5)
-tabela[4,6]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="B"),zero.policy=TRUE)$estimate[1],3)
-tabela[4,7]<-round(moran.test(parcela_vivas$du,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="B"),zero.policy=TRUE)$p.value,5)
+tabela[2,6]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[2,7]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B"),zero.policy=TRUE)$p.value,5)
+tabela[3,6]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[3,7]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="B"),zero.policy=TRUE)$p.value,5)
+tabela[4,6]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[4,7]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="B"),zero.policy=TRUE)$p.value,5)
 #k neighbours - row-normalized weights
-tabela[5,2]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="W"),zero.policy=TRUE)$estimate[1],3)
-tabela[5,3]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="W"),zero.policy=TRUE)$p.value,5)
-tabela[6,2]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="W"),zero.policy=TRUE)$estimate[1],3)
-tabela[6,3]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="W"),zero.policy=TRUE)$p.value,5)
+tabela[5,2]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="W"),zero.policy=TRUE)$estimate[1],3)
+tabela[5,3]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="W"),zero.policy=TRUE)$p.value,5)
+tabela[6,2]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="W"),zero.policy=TRUE)$estimate[1],3)
+tabela[6,3]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="W"),zero.policy=TRUE)$p.value,5)
 #k neighbours - inverse of distance weights 
-tabela[5,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$estimate[1],3)
-tabela[5,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$p.value,5)
-tabela[6,4]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$estimate[1],3)
-tabela[6,5]<-round(moran.test(parcela_vivas$du,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$p.value,5)
+tabela[5,4]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$estimate[1],3)
+tabela[5,5]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$p.value,5)
+tabela[6,4]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$estimate[1],3)
+tabela[6,5]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)))$n,parcela_vivas,type="idw"),zero.policy=TRUE)$p.value,5)
 #k neighbours - binary weights
-tabela[5,6]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="B"),zero.policy=TRUE)$estimate[1],3)
-tabela[5,7]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="B"),zero.policy=TRUE)$p.value,5)
-tabela[6,6]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy=TRUE)$estimate[1],3)
-tabela[6,7]<-round(moran.test(parcela_vivas$du,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy=TRUE)$p.value,5)
+tabela[5,6]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[5,7]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="B"),zero.policy=TRUE)$p.value,5)
+tabela[6,6]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy=TRUE)$estimate[1],3)
+tabela[6,7]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy=TRUE)$p.value,5)
 #Area of influence neighbours - three weights (WW, Wdist, WB)
-tabela[7,2]<-round(moran.test(parcela_vivas$du,WCW, zero.policy=TRUE)$estimate[1],3)
-tabela[7,3]<-round(moran.test(parcela_vivas$du,WCW, zero.policy=TRUE)$p.value,5)
-tabela[7,4]<-round(moran.test(parcela_vivas$du,WCdist, zero.policy=TRUE)$estimate[1],3)
-tabela[7,5]<-round(moran.test(parcela_vivas$du,WCdist, zero.policy=TRUE)$p.value,5)
-tabela[7,6]<-round(moran.test(parcela_vivas$du,WC, zero.policy=TRUE)$estimate[1],3)
-tabela[7,7]<-round(moran.test(parcela_vivas$du,WC, zero.policy=TRUE)$p.value,5)
+tabela[7,2]<-round(moran.test(parcela_vivas$du_annual_growth,WCW, zero.policy=TRUE)$estimate[1],3)
+tabela[7,3]<-round(moran.test(parcela_vivas$du_annual_growth,WCW, zero.policy=TRUE)$p.value,5)
+tabela[7,4]<-round(moran.test(parcela_vivas$du_annual_growth,WCdist, zero.policy=TRUE)$estimate[1],3)
+tabela[7,5]<-round(moran.test(parcela_vivas$du_annual_growth,WCdist, zero.policy=TRUE)$p.value,5)
+tabela[7,6]<-round(moran.test(parcela_vivas$du_annual_growth,WC, zero.policy=TRUE)$estimate[1],3)
+tabela[7,7]<-round(moran.test(parcela_vivas$du_annual_growth,WC, zero.policy=TRUE)$p.value,5)
 nomes<-c("Weights","Row-normalized","","Inverse Distance","", "Binary","");colnames(tabela)<-nomes
 tabelaA<-tabela
 
@@ -409,12 +432,12 @@ tabelaA<-tabela
 ##2.3 Correlogram
 ########
 par(mfrow=c(2,3))
-plot(sp.correlogram(knn2nb(knearneigh(parcela_vivas, k=4)), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="k4 neighbours")
-plot(sp.correlogram(knn2nb(knearneigh(parcela_vivas, k=8)), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="k8 neighbours")
-plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=8), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="dist 8m")
-plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=10), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="dist 10m")
-plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=15), parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35) ,main="dist 15m")
-plot(sp.correlogram(W$neighbours, parcela_vivas$du, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35) ,main="Area of Influence")
+plot(sp.correlogram(knn2nb(knearneigh(parcela_vivas, k=4)), parcela_vivas$du_annual_growth, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="k4 neighbours")
+plot(sp.correlogram(knn2nb(knearneigh(parcela_vivas, k=8)), parcela_vivas$du_annual_growth, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="k8 neighbours")
+plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=8), parcela_vivas$du_annual_growth, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="dist 8m")
+plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=10), parcela_vivas$du_annual_growth, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35), main="dist 10m")
+plot(sp.correlogram(dnearneigh(parcela_vivas, d1=0, d2=15), parcela_vivas$du_annual_growth, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35) ,main="dist 15m")
+plot(sp.correlogram(W$neighbours, parcela_vivas$du_annual_growth, method="I" ,order=9,zero.policy=TRUE),ylim=c(0,0.35) ,main="Area of Influence")
 
 #######
 #Evaluation:
@@ -429,17 +452,17 @@ plot(sp.correlogram(W$neighbours, parcela_vivas$du, method="I" ,order=9,zero.pol
 #A plot can be created to check 1) the precision of the higher and lower clusters; 2) if they clusters are in accordance to field observations
 #A plot is created for the six neighbours approaches used before
 
-localm<-localmoran(parcela_vivas$du, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du, listw=WW,alternative = "greater")
+localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+localm<-localmoran(parcela_vivas$du_annual_growth, listw=WW,alternative = "greater")
 
 #Prepare an object for the plot
 local_plot<-parcela_vivas  
 quadrant <- vector(mode = "numeric", length = nrow(localm)) #prepares a vector to receive a categorical value according to each quadrant
-m.qualification <- local_plot$du - mean(local_plot$du) # centers the variable of interest around its mean
+m.qualification <- local_plot$du_annual_growth - mean(local_plot$du_annual_growth) # centers the variable of interest around its mean
 m.local <- localm[, "Ii"] - mean(na.omit(localm[, "Ii"])) # centers the local Moran's around the mean
 signif <- 0.1# significance threshold - important for minimizing the outliers low-low and high-high  
 
@@ -471,9 +494,12 @@ legend("bottomleft", legend = c("insignificant","low-low","low-high","high-low",
 
 #Due to potentially being more accurate/balanced in describing the data, two spatial matrices will continue to the modelling phase: k-8 and dist 10m.
 
-########
+
+             
+             
+###############################
 ##3. Modelling
-########
+###############################
 #Section 3 - Non-spatial and spatial modelling
 #Non-spatial and spatial models will be fitted to each plot separately, and to all data, with the following steps: 
 #1) Non-spatial linear modelling - Individual tree and tree group methods
@@ -486,7 +512,7 @@ legend("bottomleft", legend = c("insignificant","low-low","low-high","high-low",
 ########                
 X<-parcela_vivas
 st_geometry(X)=NULL
-f<-(du~Cea_0.5m_1px+Cea_1m_1px+Altimetria_1px+slope_1px+cos_aspect_1px+TRI_1px+TPI_1px+TWI_1px)
+f<-(du_annual_growth~Cea_0.5m_1px+Cea_1m_1px+Elev_1px+slope_1px+cos_aspect_1px+TRI_1px+TPI_1px+TWI_1px)
 
 #Automatic stepwise selection of variables
 mod<-(step(lm(f, data=X)))
@@ -495,7 +521,7 @@ vif(mod);
 plot(mod)
 
 #Manual selection of variables - add biological interpretation to variable selection
-summary(lm(du~Cea_0.5m_1px+Cea_1m_1px+ TPI_tree_1px+TWI_tree_1px, data=X))
+summary(lm(du_annual_growth~Cea_0.5m_1px+Cea_1m_1px+ TPI_tree_1px+TWI_tree_1px, data=X))
 
 ########
 ##3.3.2  Group linear modelling
