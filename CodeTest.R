@@ -409,7 +409,7 @@ tabela[5,6]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(kne
 tabela[5,7]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="B"),zero.policy=TRUE)$p.value,5)
 tabela[6,6]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy=TRUE)$estimate[1],3)
 tabela[6,7]<-round(moran.test(parcela_vivas$du_annual_growth,nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy=TRUE)$p.value,5)
-#Area of influence neighbours - three weights (WW, Wdist, WB)
+#Area of influence neighbours - three weights (WW, Wdist, W)
 tabela[7,2]<-round(moran.test(parcela_vivas$du_annual_growth,WCW, zero.policy=TRUE)$estimate[1],3)
 tabela[7,3]<-round(moran.test(parcela_vivas$du_annual_growth,WCW, zero.policy=TRUE)$p.value,5)
 tabela[7,4]<-round(moran.test(parcela_vivas$du_annual_growth,WCdist, zero.policy=TRUE)$estimate[1],3)
