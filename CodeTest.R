@@ -22,30 +22,30 @@ parcela_vivas<-parcela[which(parcela$Morta == 0),]  ##Remove dead trees
 # these variable are already calculated on the sf object. Code displayed in this section is only for informative purposes
 
 #1.1.1 Geographical position indices calculation (TPI and TRI)
-f <- matrix(1, nrow=5, ncol=5)
-TPI <- focal(Altimetria, w=f, fun=function(x, ...) x[5] - mean(x[-5]), pad=TRUE, padValue=NA);plot(TPI)
-TRI <- focal(Altimetria, w=f, fun=function(x) sum(abs(x[-5]-x[5]))/8, pad=TRUE, padValue=NA);plot(TRI)
+#f <- matrix(1, nrow=5, ncol=5)
+#TPI <- focal(Altimetria, w=f, fun=function(x, ...) x[5] - mean(x[-5]), pad=TRUE, padValue=NA);plot(TPI)
+#TRI <- focal(Altimetria, w=f, fun=function(x) sum(abs(x[-5]-x[5]))/8, pad=TRUE, padValue=NA);plot(TRI)
 
 #1.1.2 Geographical position indices calculation (TWI)
 # TWI calculation based on the methodology of https://vt-hydroinformatics.github.io/rgeoraster.html
   # Prepare DEM for Hydrology Analyses
-  wbt_breach_depressions_least_cost(dem = "/path/parcela_Altimetria.tif", output = "/path/parcela_DTM_breach.tif", dist = 5,  fill = TRUE)
-  wbt_fill_depressions_wang_and_liu(dem = "/path/parcela_DTM_breach.tif",output = "/path/parcela_DTM_breach_fill.tif")
+#  wbt_breach_depressions_least_cost(dem = "/path/parcela_Altimetria.tif", output = "/path/parcela_DTM_breach.tif", dist = 5,  fill = TRUE)
+#  wbt_fill_depressions_wang_and_liu(dem = "/path/parcela_DTM_breach.tif",output = "/path/parcela_DTM_breach_fill.tif")
   # Visualize and correct filled sinks and breached depression
-  filled_breached <- raster("/path/parcela_DTM_breach_fill.tif")
-  plot(filled_breached)
-    difference <- Altimetria - filled_breached
-  difference[difference == 0] <- NA
+#  filled_breached <- raster("/path/parcela_DTM_breach_fill.tif")
+#  plot(filled_breached)
+#    difference <- Altimetria - filled_breached
+#  difference[difference == 0] <- NA
   #D infinity flow accumulation (alternative flow accumulation may be calculated from D infinity method D8 Flow Accumulation)
-  wbt_d_inf_flow_accumulation("/path/parcela_DTM_breach_fill.tif","/path/Infinit_FlowAccum.tif")
-  dinf <- raster("/path/Infinit_FlowAccum.tif");  plot(dinf)
+#  wbt_d_inf_flow_accumulation("/path/parcela_DTM_breach_fill.tif","/path/Infinit_FlowAccum.tif")
+#  dinf <- raster("/path/Infinit_FlowAccum.tif");  plot(dinf)
   #Calculate Specific Contributing Area
-  wbt_d_inf_flow_accumulation(input = "/path/parcela_DTM_breach_fill.tif",output = "/path/FlowAccum2.tif", out_type = "Specific Contributing Area")
+#  wbt_d_inf_flow_accumulation(input = "/path/parcela_DTM_breach_fill.tif",output = "/path/FlowAccum2.tif", out_type = "Specific Contributing Area")
   #Calculate slope or use slope mapped tif from data
-  wbt_slope(dem = "/path/parcela_DTM_breach_fill.tif",output = "/path/parcela_slope_degrees.tif",units = "degrees")
+#  wbt_slope(dem = "/path/parcela_DTM_breach_fill.tif",output = "/path/parcela_slope_degrees.tif",units = "degrees")
   #Calculate topographic wetness index
-  wbt_wetness_index(sca = "/path/FlowAccum2.tif",slope = "/path/parcela_slope_degrees.tif", output = "/path/TWI.tif")              
-  twi <- raster("/path/TWI.tif");  plot(twi)
+#  wbt_wetness_index(sca = "/path/FlowAccum2.tif",slope = "/path/parcela_slope_degrees.tif", output = "/path/TWI.tif")              
+#  twi <- raster("/path/TWI.tif");  plot(twi)
 
 ########
 #1.2 Dependent variables - Calculate diameter related variables and attribute explanatory values to points
