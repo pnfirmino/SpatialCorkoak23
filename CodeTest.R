@@ -128,11 +128,11 @@ for(i in c(1:235)) {
   b<-data.frame(matrix(NA,  ncol = 1))
   b$id<- arvsuj[1,"id"]
   b$continId<-arvsuj[1,"continId"]
-  b$BA<-arvsuj[1,"annual_BA"]+arv1[1,"annual_BA"]+arv2[1,"annual_BA"]+arv3[1,"annual_BA"]+arv4[1,"annual_BA"]+arv5[1,"annual_BA"]+arv6[1,"annual_BA"]+arv7[1,"annual_BA"]+ arv8[1,"annual_BA"]
-  b$CEa_0.5<-(arvsuj[1,"Cea_0.5m_1px"]+arv1[1,"Cea_0.5m_1px"]+arv2[1,"Cea_0.5m_1px"]+arv3[1,"Cea_0.5m_1px"]+
+  b$annual_BA<-arvsuj[1,"annual_BA"]+arv1[1,"annual_BA"]+arv2[1,"annual_BA"]+arv3[1,"annual_BA"]+arv4[1,"annual_BA"]+arv5[1,"annual_BA"]+arv6[1,"annual_BA"]+arv7[1,"annual_BA"]+ arv8[1,"annual_BA"]
+  b$Cea_0.5m<-(arvsuj[1,"Cea_0.5m_1px"]+arv1[1,"Cea_0.5m_1px"]+arv2[1,"Cea_0.5m_1px"]+arv3[1,"Cea_0.5m_1px"]+
                 arv4[1,"Cea_0.5m_1px"]+arv5[1,"Cea_0.5m_1px"]+arv6[1,"Cea_0.5m_1px"]+arv7[1,"Cea_0.5m_1px"]+
                 arv8[1,"Cea_0.5m_1px"]/9)
-  b$CEa_1<-((arvsuj[1,"Cea_1m_1px"]+arv1[1,"Cea_1m_1px"]+arv2[1,"Cea_1m_1px"]+arv3[1,"Cea_1m_1px"]+
+  b$Cea_1m<-((arvsuj[1,"Cea_1m_1px"]+arv1[1,"Cea_1m_1px"]+arv2[1,"Cea_1m_1px"]+arv3[1,"Cea_1m_1px"]+
                arv4[1,"Cea_1m_1px"]+arv5[1,"Cea_1m_1px"]+arv6[1,"Cea_1m_1px"]+arv7[1,"Cea_1m_1px"]+
                arv8[1,"Cea_1m_1px"])/9)
   b$TRI<-((arvsuj[1,"TRI_1px"]+arv1[1,"TRI_1px"]+arv2[1,"TRI_1px"]+arv3[1,"TRI_1px"]+
@@ -144,7 +144,7 @@ for(i in c(1:235)) {
   b$slope<-((arvsuj[1,"slope_1px"]+arv1[1,"slope_1px"]+arv2[1,"slope_1px"]+arv3[1,"slope_1px"]+
                arv4[1,"slope_1px"]+arv5[1,"slope_1px"]+arv6[1,"slope_1px"]+arv7[1,"slope_1px"]+
                arv8[1,"slope_1px"])/9)
-  b$cos_asp<-((arvsuj[1,"cos_aspect_1px"]+arv1[1,"cos_aspect_1px"]+arv2[1,"cos_aspect_1px"]+arv3[1,"cos_aspect_1px"]+
+  b$cos_aspect<-((arvsuj[1,"cos_aspect_1px"]+arv1[1,"cos_aspect_1px"]+arv2[1,"cos_aspect_1px"]+arv3[1,"cos_aspect_1px"]+
                  arv4[1,"cos_aspect_1px"]+arv5[1,"cos_aspect_1px"]+arv6[1,"cos_aspect_1px"]+arv7[1,"cos_aspect_1px"]+
                  arv8[1,"cos_aspect_1px"])/9)
   b$Elev<-((arvsuj[1,"Altimetria_1px"]+arv1[1,"Altimetria_1px"]+arv2[1,"Altimetria_1px"]+arv3[1,"Altimetria_1px"]+
@@ -515,9 +515,9 @@ f<-(du_annual_growth~Cea_0.5m_1px+Cea_1m_1px+Elev_1px+slope_1px+cos_aspect_1px+T
 
 #Automatic stepwise selection of variables
 mod<-(step(lm(f, data=X)))
-summary(mod); 
-vif(mod);
-plot(mod)
+summary(mod)
+vif(mod) #check multicollinearity
+plot(mod) #plot residuals
 
 #Manual selection of variables - add biological interpretation to variable selection
 summary(lm(du_annual_growth~Cea_0.5m_1px+Cea_1m_1px+ TPI_tree_1px+TWI_tree_1px, data=X))
@@ -526,6 +526,11 @@ summary(lm(du_annual_growth~Cea_0.5m_1px+Cea_1m_1px+ TPI_tree_1px+TWI_tree_1px, 
 ##3.3.2  Group linear modelling
 ######## 
 ###Two methods were tested for creat tree group units: 1) groups of k-8 neighbours (groups of 9 trees); 2) groups by intersection of tree in fixed area grids.
-
+X<-arvores
+f<-(annuak_BA~Cea_0.5m+Cea_1m+Elev+slope+cos_aspect+TRI+TPI+TWI)
+mod2<-(step(lm(f, data=X)))
+summary(mod2)
+vif(mod2) #check multicollinearity
+plot(mod2) #plot residuals
 
 
