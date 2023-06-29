@@ -57,7 +57,7 @@ parcela_vivas<-parcela[which(parcela$Morta == 0),]  ##Remove dead trees
 #Already calculated in dataframe as column "du_annual_growth"
              
 #Attribute exploratory variable value according to the pixel where tree is positioned
-parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example, already on the dataframe
+#parcela$Cea_1m_1px<-extract(Cea_1m,parcela) #Variable Example, already on the dataframe
              
 ########
 #1.2.2 - Basal area annual growth of a group of closely located trees
