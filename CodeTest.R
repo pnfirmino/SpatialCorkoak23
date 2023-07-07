@@ -455,7 +455,7 @@ plot(sp.correlogram(W$neighbours, parcela_vivas$du_annual_growth, method="I" ,or
 #localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
 #localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
 #localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
-localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
+#localm<-localmoran(parcela_vivas$du_annual_growth, listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),zero.policy = TRUE,style="W"),alternative = "greater",zero.policy = TRUE)
 #localm<-localmoran(parcela_vivas$du_annual_growth, listw=WW,alternative = "greater")
 
 #Prepare an object for the plot
@@ -538,10 +538,37 @@ plot(mod2) #plot residuals
 ########
 ##3.3.3  Spatial modelling
 ######## 
-##3.3.3.1 Spatial lag model
-########    
-f <- as.formula("du_annual_growth~Cea_0.5m_1px+Cea_1m_1px+Altimetria_1px+slope_1px+cos_aspect_1px+TRI_1px+TPI_tree_1px+TWI_tree_1px")
+##3.3.3.1  #Spatial models as form of model parameter sensitivity analysis to a proper spatial weights matrix
+########
+#Spatial modelling consisting in fitting the spatial lag model (check rho parameter), spatial error (check lambda parameter) and if needed SAC model (rho and lambda)
+#A table (tabela) of the outputs of the spatial models to evaluate the parameter models, on the format:
+#Spatial Lag Model A																										
+#	                                 Row-normalized				                     	 Inverse distance				                   Binary				
+#Method	                           Rho	 p-value	Loglikelihood	AIC	    R2	   Rho	p-value	Loglikelihood	AIC     R2	   Rho	p-value	Loglikelihood 	AIC	  R2
+#Distance based neighbours - 8m	   0.12	  0	        25.792	   -29.6	0.0588	-0.009	0.771	  18.61	     -15.2	0.0375	0.008	  0.202	   19.381	   -16.8	0.0395
+#Distance based neighbours - 10m	 0.202	0	        27.194	   -32.4	0.0643	 0.029	0.278	  19.156	   -16.3	0.0389	0.012	  0.005	   22.43	   -22.9	0.0472
+#Distance based neighbours - 15m	 0.391	0	        36.169	   -50.3	0.0909	 0.043	0.037	  20.749	   -19.5	0.0429	0.008	  0.001	   24.357	   -26.7	0.0517
+#k neighbours - 4	                 0.238	0	        32.115	   -42.2	0.0801	 0.05 	0.296	  19.114	   -16.2	0.039	  0.06	   0	     32.115	   -42.2	0.0801
+#k neighbours - 8	                 0.316	0	        32.389	   -42.8	0.0803	 0.068	0.071	  20.193	   -18.4	0.042	  0.039	   0	     32.389	   -42.8	0.0803
+#Area of Influence approach	       0.2	  0.001	    23.848	   -25.7	0.0541	 0	    0	      291.116	   -560.2	0.5072	0	       0	     221.745	-421.5	0.4192
 
+#A second table (tabela2) of the variable outputs from the models, on the format:
+#	Spatial Lags Model A											
+#	             Distance based - 8m		Distance based  - 10m		Distance based  - 15m		k neighbours - 4			k neighbours - 8		Area of Influence approach	
+#Row-normalized	Estimate	p-value	     Estimate	p-value		     Estimate	 p-value	    Estimate	p-value		  Estimate	p-value	    Estimate	p-value
+#(Intercept)	   4.5292	  0.0058	     4.0769	  0.0133		      3.0201	 0.0649	        3.8660	0.0181		    3.3218	0.0432	    3.8647	0.0208
+#Cea_0.5m_1px	  -0.0620	  0.2512	    -0.0621	  0.2483		     -0.0560	 0.2913	       -0.0618	0.2462		   -0.0596	0.2636	   -0.0622	0.2503
+#Cea_1m_1px	     0.0233	  0.6144	     0.0186	  0.6864		      0.0222	 0.6254	        0.0175	0.7014		    0.0252	0.5813	    0.0177	0.7014
+#Altimetria_1px	-0.0239	  0.0188	    -0.0213	  0.0359		     -0.0158	 0.1163	       -0.0202	0.0451		   -0.0173	0.0870	   -0.0202	0.0500
+#slope_1px	    -0.0103	  0.6609	    -0.0105	  0.6516		     -0.0091	 0.6937	       -0.0066	0.7766		   -0.0085	0.7134	   -0.0075	0.7475
+#cos_aspect_1px	-0.0131	  0.2573	    -0.0137	  0.2358		     -0.0132	 0.2484	       -0.0142	0.2166		   -0.0139	0.2264	   -0.0138	0.2344
+#TRI_1px	       0.0091	  0.9491	     0.0091	  0.9493		      0.0124	 0.9294	       -0.0056	0.9681		    0.0085	0.9519	   -0.0113	0.9371
+#TPI_tree_1px	  -0.1665	  0.0398	    -0.1559	  0.0539		     -0.1247	 0.1186	       -0.1564	0.0508		   -0.1465	0.0684	   -0.1705	0.0370
+#TWI_tree_1px	   0.0163	  0.1330	     0.0170	  0.1144		      0.0156	 0.1435	        0.0177	0.0973		    0.0156	0.1444	    0.0184	0.0903
+
+#The code is extense since is not in a cycle yet. Its slow. Its displayed for spatial lags as an example. All outputs are provided in a excel sheet.
+#Set the table empty object and the name column
+f <- as.formula("du_annual_growth~Cea_0.5m_1px+Cea_1m_1px+Altimetria_1px+slope_1px+cos_aspect_1px+TRI_1px+TPI_tree_1px+TWI_tree_1px") 
 tabela<-data.frame()
 tabela[1,1]<- "Method"
 tabela[2,1]<- "Distance based neighbours - 8m"
@@ -717,359 +744,141 @@ nomes2<-c("Binary","Estimate","p-value","Estimate","p-value","Estimate","p-value
 tabela2
 nomes<-c("","Row-normalized","","","","","Inverse Distance","","","","","Binary","","","","");colnames(tabela)<-nomes
 tabela
+#tabela_spatial_lag_A<-tabela
+#tabela_spatial_lag_B<-tabela
+#tabela_spatial_lag_C<-tabela
+#tabela_spatial_lag_D<-tabela
 
 
+##3.3.3.2  #Fitting spatial models for obtaining results
+########
+# (Again) Spatial modelling consisting in fitting the spatial lag model (check rho parameter), spatial error (check lambda parameter) and if needed SAC model (rho and lambda)
+# This phase is for a complementar phase of the outputs generated before. The model errors are evaluated.
+#For this the code from MLC - has the advantage of being more versatile and fast, to check smaller variations that can be applied to the model.
 
+# Analyze effect of interaction
+# Compare response witout spatial autocorrelation (Y0) and response when spatial autocorrelation occurs (YA)
 
-tabela<-data.frame()
-tabela[1,1]<- "Method"
-tabela[2,1]<- "Distance based neighbours - 8m"
-tabela[3,1]<- "Distance based neighbours - 10m"
-tabela[4,1]<- "Distance based neighbours - 15m"
-tabela[5,1]<- " k neighbours - 4"
-tabela[6,1]<- " k neighbours - 8"
-tabela[7,1]<- "Area of Influence approach"
-tabela[1,2]<-"Lambda";tabela[1,3]<-"p-value";tabela[1,4]<-"Loglikelihood";tabela[1,5]<-"AIC";
-tabela[1,6]<- "Lambda";tabela[1,7]<-"p-value";tabela[1,8]<-"Loglikelihood";tabela[1,9]<-"AIC";
-tabela[1,10]<- "Lambda";tabela[1,11]<-"p-value";tabela[1,12]<-"Loglikelihood";tabela[1,13]<-"AIC";
-tabela2<-data.frame()
-tabela2[1,1]<-"(Intercept)";tabela2[2,1]<-"Cea_0.5m_1px";tabela2[3,1]<-"Cea_1m_1px";tabela2[4,1]<-"Altimetria_1px";
-tabela2[5,1]<-"slope_1px";tabela2[6,1]<-"cos_aspect_1px";tabela2[7,1]<-"TRI_1px";tabela2[8,1]<-"TPI_tree_1px";tabela2[9,1]<-"TWI_tree_1px"
+# lista para guardar resultados:
+RESULTS=list()
+# ciclo para passar pelos sites e pelo número de vizinhos
+for (SITE in LETTERS[1:4]) # "A") #
+  for (K in 8:8) # 
+  {
+    print(paste(K,SITE))
+    
+    results=list()
+        
+    DF=read.csv2("C:/Users/caven/Google Drive (paulofirmino@e-isa.ulisboa.pt)/2023-Doutoramento/SpatialCorkoak/Dados_SpatialCorkOak.csv",header=TRUE,sep=";",dec = ",")
+    head(DF)
+    dim(DF)
+    YA=DF$du #du_annual_growth #
+    mort=DF$Morta
+    x=DF$coordsX
+    y=DF$coordsY
+    mais_velha=DF$mais_velha
+    sites=DF$Site
+    # "probmort"
+    vars=c("Cea_1m_1px","Cea_0.5m_1px","Altimetria_1px","slope_1px","TPI_tree_1px","TWI_tree_1px","TRI_1px","cos_aspect_1px")
+    results$vars=vars
+    
+    # select data depending on cond
+    cond=(sites==SITE & mort==0 & mais_velha==0 & YA>=0)
+    n=sum(cond)
+    YA=YA[cond] # has columns X1,..., and Y
+    x=x[cond] # has columns X1,..., and Y
+    y=y[cond] # has columns X1,..., and Y
+    DF=DF[cond,]
+    dfxy=cbind(data.frame(x,y),DF[,vars])
+    df=dfxy
+    df$x=NULL
+    df$y=NULL
+    coordinates(dfxy)=c("x","y") # dfxy is a sp object
+    
+    # scale response variable
+    #df$Y=scale(YA)
+    head(df)
+    
+    # nlist
+    # to avoid empty neighborhoods
+    set.ZeroPolicyOption(TRUE)
+    get.ZeroPolicyOption()
+     #nlist=spdep::dnearneigh(dfxy,d1=0,d2=K) # problems with empty neighborhoods
+     nlist=spdep::knn2nb(knearneigh(dfxy,k=K))
 
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE),zero.policy = TRUE)
-tabela[2,2]<-round(mod.err$lambda,3)
-tabela[2,3]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[2,4]<-round(mod.err$LL,3)
-tabela[2,5]<-round(AIC(mod.err),1)
-tabela2[,2]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,3]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE),zero.policy = TRUE)
-tabela[3,2]<-round(mod.err$lambda,3)
-tabela[3,3]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[3,4]<-round(mod.err$LL,3)
-tabela[3,5]<-round(AIC(mod.err),1)
-tabela2[,4]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,5]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE),zero.policy = TRUE)
-tabela[4,2]<-round(mod.err$lambda,3)
-tabela[4,3]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[4,4]<-round(mod.err$LL,3)
-tabela[4,5]<-round(AIC(mod.err),1)
-tabela2[,6]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,7]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="W"),zero.policy = TRUE)
-tabela[5,2]<-round(mod.err$lambda,3)
-tabela[5,3]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[5,4]<-round(mod.err$LL,3)
-tabela[5,5]<-round(AIC(mod.err),1)
-tabela2[,8]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,9]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="W"),zero.policy = TRUE)
-tabela[6,2]<-round(mod.err$lambda,3)
-tabela[6,3]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[6,4]<-round(mod.err$LL,3)
-tabela[6,5]<-round(AIC(mod.err),1)
-tabela2[,10]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,11]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=WW,zero.policy = TRUE)
-tabela[7,2]<-round(mod.err$lambda,1)
-tabela[7,3]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[7,4]<-round(mod.err$LL,3)
-tabela[7,5]<-round(AIC(mod.err),1)
-tabela2[,12]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,13]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-nomes2<-c("Row_normalized","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value");colnames(tabela2)<-nomes2
-tabela2
+    ############################################################# analize data set
+    if (FALSE)
+    {
+      # estimate rho (lento)
+      lagsarlm(Y~.,data=df,listw=nb2listw(nlist,style="W",zero.policy = TRUE))$rho
+      # estimate lambda
+      errorsarlm(Y~.,data=df,listw=nb2listw(nlist,style="W",zero.policy = TRUE))$lambda
+    }
+    
+    # plot values
+    plot(dfxy$x,dfxy$y,pch='.') # locations (x,y)
+    text(dfxy$x,dfxy$y,label=round(YA,2),cex=0.5) # locations (x,y)
+    
+    # distance based (1 connection is 1 unit) Moran's I
+    #plot(sp.correlogram(nlist,as.vector(YA),order=10,method="I",style="W"))
+    plot(sp.correlogram(nlist,as.vector(YA),order=5,method="I",style="W"))
+    # variogram
+    dfxy$Y=YA
+    myvgm=variogram(YA~1, dfxy)
+    plot(myvgm)
+    mymodel <- gstat::fit.variogram(myvgm,vgm("Sph"),fit.kappa=TRUE)
+    plot(myvgm, model=mymodel)
+    
+    ############################################################## fit models
+    
+    # use a model that doesn't "model" autocorrelation (regular linear model)
+    df$Y=YA
+    model=lm(Y~.,data=df)
+    summary(model)
+    Ypred=fitted(model)
+    plot(Ypred~YA)
+    results$lrr2=paste('LR R2=',1-sum((Ypred-YA)^2)/(var(YA)*(n-1)))
+    
+    # lagmodel 
+    df$Y=YA
+    model=lagsarlm(Y~.,data=df,listw=nb2listw(nlist,style="W",zero.policy = TRUE))
+    summary(model)
+    Ypred=fitted(model)
+    plot(Ypred~YA)
+    results$lagr2=paste('lagmodel R2=',1-sum((Ypred-YA)^2)/(var(YA)*(n-1)))
+    
+    # spatial error model 
+    df$Y=YA
+    model=errorsarlm(Y~.,data=df,listw=nb2listw(nlist,style="W",zero.policy = TRUE))
+    summary(model)
+    Ypred=fitted(model)
+    plot(Ypred~YA)
+    results$errr2=paste('spatial error model R2=',1-sum((Ypred-YA)^2)/(var(YA)*(n-1)))
+    
+    # both
+    df$Y=YA
+    model=sacsarlm(Y~.,data=df,listw=nb2listw(nlist, style="W",zero.policy = TRUE))
+    summary(model)
+    Ypred=fitted(model)
+    plot(Ypred~YA)
+    results$sac2=paste('spatial sac model R2=',1-sum((Ypred-YA)^2)/(var(YA)*(n-1)))
+    
+    # compare models with spdep::lm.LMtests
+    # Lagrange multiplier diagnostics for spatial dependence (pg 435)
+    model=lm(YA~.,data=df)
+    res=spdep::lm.LMtests(model,nb2listw(nlist,style="W",zero.policy = TRUE),test="all")
+    for (mod in c("LMerr",  "LMlag",  "RLMerr", "RLMlag" ,"SARMA")) results[[mod]]=res[[mod]]$p.value
+    
+    # atualizar lista de resultados
+    RESULTS[[paste(SITE,K)]]=results
+  }
+results
 
-
-tabela2<-data.frame()
-tabela2[1,1]<-"(Intercept)";tabela2[2,1]<-"Cea_0.5m_1px";tabela2[3,1]<-"Cea_1m_1px";tabela2[4,1]<-"Altimetria_1px";
-tabela2[5,1]<-"slope_1px";tabela2[6,1]<-"cos_aspect_1px";tabela2[7,1]<-"TRI_1px";tabela2[8,1]<-"TPI_tree_1px";tabela2[9,1]<-"TWI_tree_1px"
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy = TRUE)
-tabela[2,6]<-round(mod.err$lambda,3)
-tabela[2,7]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[2,8]<-round(mod.err$LL,3)
-tabela[2,9]<-round(AIC(mod.err),1)
-tabela2[,2]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,3]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy = TRUE)
-tabela[3,6]<-round(mod.err$lambda,3)
-tabela[3,7]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[3,8]<-round(mod.err$LL,3)
-tabela[3,9]<-round(AIC(mod.err),1)
-tabela2[,4]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,5]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy = TRUE)
-tabela[4,6]<-round(mod.err$lambda,3)
-tabela[4,7]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[4,8]<-round(mod.err$LL,3)
-tabela[4,9]<-round(AIC(mod.err),1)
-tabela2[,6]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,7]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)))$n,parcela_vivas,type="idw"),zero.policy = TRUE)
-tabela[5,6]<-round(mod.err$lambda,3)
-tabela[5,7]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[5,8]<-round(mod.err$LL,3)
-tabela[5,9]<-round(AIC(mod.err),1)
-tabela2[,8]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,9]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)))$n,parcela_vivas,type="idw"),zero.policy = TRUE)
-tabela[6,6]<-round(mod.err$lambda,3)
-tabela[6,7]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[6,8]<-round(mod.err$LL,3)
-tabela[6,9]<-round(AIC(mod.err),1)
-tabela2[,10]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,11]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=Wdist,zero.policy = TRUE)
-tabela[7,6]<-round(mod.err$lambda,1)
-tabela[7,7]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[7,8]<-round(mod.err$LL,3)
-tabela[7,9]<-round(AIC(mod.err),1)
-tabela2[,12]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,13]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-nomes2<-c("Row_normalized","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value");colnames(tabela2)<-nomes2
-tabela2
-
-tabela2<-data.frame()
-tabela2[1,1]<-"(Intercept)";tabela2[2,1]<-"Cea_0.5m_1px";tabela2[3,1]<-"Cea_1m_1px";tabela2[4,1]<-"Altimetria_1px";
-tabela2[5,1]<-"slope_1px";tabela2[6,1]<-"cos_aspect_1px";tabela2[7,1]<-"TRI_1px";tabela2[8,1]<-"TPI_tree_1px";tabela2[9,1]<-"TWI_tree_1px"
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B"),zero.policy = TRUE)
-tabela[2,10]<-round(mod.err$lambda,3)
-tabela[2,11]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[2,12]<-round(mod.err$LL,3)
-tabela[2,13]<-round(AIC(mod.err),1)
-tabela2[,2]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,3]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="B"),zero.policy = TRUE)
-tabela[3,10]<-round(mod.err$lambda,3)
-tabela[3,11]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[3,12]<-round(mod.err$LL,3)
-tabela[3,13]<-round(AIC(mod.err),1)
-tabela2[,4]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,5]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="B"),zero.policy = TRUE)
-tabela[4,10]<-round(mod.err$lambda,3)
-tabela[4,11]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[4,12]<-round(mod.err$LL,3)
-tabela[4,13]<-round(AIC(mod.err),1)
-tabela2[,6]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,7]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="B"),zero.policy = TRUE)
-tabela[5,10]<-round(mod.err$lambda,3)
-tabela[5,11]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[5,12]<-round(mod.err$LL,3)
-tabela[5,13]<-round(AIC(mod.err),1)
-tabela2[,8]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,9]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy = TRUE)
-tabela[6,10]<-round(mod.err$lambda,3)
-tabela[6,11]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[6,12]<-round(mod.err$LL,3)
-tabela[6,13]<-round(AIC(mod.err),1)
-tabela2[,10]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,11]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-mod.err<-errorsarlm(f,data=parcela_vivas,listw=W,zero.policy = TRUE)
-tabela[7,10]<-round(mod.err$lambda,1)
-tabela[7,11]<-round(LR.Sarlm(mod.err, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[7,12]<-round(mod.err$LL,3)
-tabela[7,13]<-round(AIC(mod.err),1)
-tabela2[,12]<-round(summary(mod.err)$Coef[,"Estimate"],4)
-tabela2[,13]<-round(summary(mod.err)$Coef[,"Pr(>|z|)"],4)
-nomes2<-c("Row_normalized","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value");colnames(tabela2)<-nomes2
-tabela2
-
-nomes<-c("","Row-normalized","","","","Inverse Distance","","","","Binary","","","");colnames(tabela)<-nomes
-tabela
-#tabela_spatial_error_A<-tabela
-#tabela_spatial_error_B<-tabela
-#tabela_spatial_error_C<-tabela
-tabela_spatial_error_D<-tabela
-
-
-#########################################################################################
-
-
-tabela<-data.frame()
-tabela[1,1]<- "Method"
-tabela[2,1]<- "Distance based neighbours - 8m"
-tabela[3,1]<- "Distance based neighbours - 10m"
-tabela[4,1]<- "Distance based neighbours - 15m"
-tabela[5,1]<- " k neighbours - 4"
-tabela[6,1]<- " k neighbours - 8"
-tabela[7,1]<- "Area of Influence approach"
-tabela[1,2]<-"Rho";tabela[1,3]<-"Lambda";tabela[1,4]<-"LR test p-value";tabela[1,5]<-"Loglikelihood";tabela[1,6]<-"AIC";
-tabela[1,7]<-"Rho";tabela[1,8]<-"Lambda";tabela[1,9]<-"p-value";tabela[1,10]<-"Loglikelihood";tabela[1,11]<-"AIC";
-tabela[1,12]<-"Rho";tabela[1,13]<-"Lambda";tabela[1,14]<-"p-value";tabela[1,15]<-"Loglikelihood";tabela[1,16]<-"AIC";
-tabela2<-data.frame()
-tabela2[1,1]<-"(Intercept)";tabela2[2,1]<-"Cea_0.5m_1px";tabela2[3,1]<-"Cea_1m_1px";tabela2[4,1]<-"Altimetria_1px";
-tabela2[5,1]<-"slope_1px";tabela2[6,1]<-"cos_aspect_1px";tabela2[7,1]<-"TRI_1px";tabela2[8,1]<-"TPI_tree_1px";tabela2[9,1]<-"TWI_tree_1px"
-
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE),zero.policy = TRUE)
-tabela[2,2]<-round(mod.sac$rho,3)
-tabela[2,3]<-round(mod.sac$lambda,3)
-tabela[2,4]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[2,5]<-round(mod.sac$LL,3)
-tabela[2,6]<-round(AIC(mod.sac),1)
-tabela2[,2]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,3]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE),zero.policy = TRUE)
-tabela[3,2]<-round(mod.sac$rho,3)
-tabela[3,3]<-round(mod.sac$lambda,3)
-tabela[3,4]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[3,5]<-round(mod.sac$LL,3)
-tabela[3,6]<-round(AIC(mod.sac),1)
-tabela2[,4]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,5]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE),zero.policy = TRUE)
-tabela[4,2]<-round(mod.sac$rho,3)
-tabela[4,3]<-round(mod.sac$lambda,3)
-tabela[4,4]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[4,5]<-round(mod.sac$LL,3)
-tabela[4,6]<-round(AIC(mod.sac),1)
-tabela2[,6]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,7]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="W"),zero.policy = TRUE)
-tabela[5,2]<-round(mod.sac$rho,3)
-tabela[5,3]<-round(mod.sac$lambda,3)
-tabela[5,4]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[5,5]<-round(mod.sac$LL,3)
-tabela[5,6]<-round(AIC(mod.sac),1)
-tabela2[,8]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,9]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="W"),zero.policy = TRUE)
-tabela[6,2]<-round(mod.sac$rho,3)
-tabela[6,3]<-round(mod.sac$lambda,3)
-tabela[6,4]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[6,5]<-round(mod.sac$LL,3)
-tabela[6,6]<-round(AIC(mod.sac),1)
-tabela2[,10]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,11]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=WW,zero.policy = TRUE)
-tabela[7,2]<-round(mod.sac$rho,3)
-tabela[7,3]<-round(mod.sac$lambda,3)
-tabela[7,4]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[7,5]<-round(mod.sac$LL,3)
-tabela[7,6]<-round(AIC(mod.sac),1)
-tabela2[,12]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,13]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-nomes2<-c("Row_normalized","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value");colnames(tabela2)<-nomes2
-tabela2
-
-tabela2<-data.frame()
-tabela2[1,1]<-"(Intercept)";tabela2[2,1]<-"Cea_0.5m_1px";tabela2[3,1]<-"Cea_1m_1px";tabela2[4,1]<-"Altimetria_1px";
-tabela2[5,1]<-"slope_1px";tabela2[6,1]<-"cos_aspect_1px";tabela2[7,1]<-"TRI_1px";tabela2[8,1]<-"TPI_tree_1px";tabela2[9,1]<-"TWI_tree_1px"
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy = TRUE)
-tabela[2,7]<-round(mod.sac$rho,3)
-tabela[2,8]<-round(mod.sac$lambda,3)
-tabela[2,9]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[2,10]<-round(mod.sac$LL,3)
-tabela[2,11]<-round(AIC(mod.sac),1)
-tabela2[,2]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,3]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy = TRUE)
-tabela[3,7]<-round(mod.sac$rho,3)
-tabela[3,8]<-round(mod.sac$lambda,3)
-tabela[3,9]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[3,10]<-round(mod.sac$LL,3)
-tabela[3,11]<-round(AIC(mod.sac),1)
-tabela2[,4]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,5]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE)$n,parcela_vivas,type="idw",zero.policy = TRUE),zero.policy = TRUE)
-tabela[4,7]<-round(mod.sac$rho,3)
-tabela[4,8]<-round(mod.sac$lambda,3)
-tabela[4,9]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[4,10]<-round(mod.sac$LL,3)
-tabela[4,11]<-round(AIC(mod.sac),1)
-tabela2[,6]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,7]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)))$n,parcela_vivas,type="idw"),zero.policy = TRUE)
-tabela[5,7]<-round(mod.sac$rho,3)
-tabela[5,8]<-round(mod.sac$lambda,3)
-tabela[5,9]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[5,10]<-round(mod.sac$LL,3)
-tabela[5,11]<-round(AIC(mod.sac),1)
-tabela2[,8]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,9]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listwdist(nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)))$n,parcela_vivas,type="idw"),zero.policy = TRUE)
-tabela[6,7]<-round(mod.sac$rho,3)
-tabela[6,8]<-round(mod.sac$lambda,3)
-tabela[6,9]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[6,10]<-round(mod.sac$LL,3)
-tabela[6,11]<-round(AIC(mod.sac),1)
-tabela2[,10]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,11]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=Wdist,zero.policy = TRUE)
-tabela[7,7]<-round(mod.sac$rho,3)
-tabela[7,8]<-round(mod.sac$lambda,3)
-tabela[7,9]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[7,10]<-round(mod.sac$LL,3)
-tabela[7,11]<-round(AIC(mod.sac),1)
-tabela2[,12]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,13]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-nomes2<-c("Row_normalized","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value");colnames(tabela2)<-nomes2
-tabela2
-
-tabela2<-data.frame()
-tabela2[1,1]<-"(Intercept)";tabela2[2,1]<-"Cea_0.5m_1px";tabela2[3,1]<-"Cea_1m_1px";tabela2[4,1]<-"Altimetria_1px";
-tabela2[5,1]<-"slope_1px";tabela2[6,1]<-"cos_aspect_1px";tabela2[7,1]<-"TRI_1px";tabela2[8,1]<-"TPI_tree_1px";tabela2[9,1]<-"TWI_tree_1px"
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=8),zero.policy = TRUE,style="B"),zero.policy = TRUE)
-tabela[2,12]<-round(mod.sac$rho,3)
-tabela[2,13]<-round(mod.sac$lambda,3)
-tabela[2,14]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[2,15]<-round(mod.sac$LL,3)
-tabela[2,16]<-round(AIC(mod.sac),1)
-tabela2[,2]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,3]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=10),zero.policy = TRUE,style="B"),zero.policy = TRUE)
-tabela[3,12]<-round(mod.sac$rho,3)
-tabela[3,13]<-round(mod.sac$lambda,3)
-tabela[3,14]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[3,15]<-round(mod.sac$LL,3)
-tabela[3,16]<-round(AIC(mod.sac),1)
-tabela2[,4]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,5]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(dnearneigh(parcela_vivas, d1=0, d2=15),zero.policy = TRUE,style="B"),zero.policy = TRUE)
-tabela[4,12]<-round(mod.sac$rho,3)
-tabela[4,13]<-round(mod.sac$lambda,3)
-tabela[4,14]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[4,15]<-round(mod.sac$LL,3)
-tabela[4,16]<-round(AIC(mod.sac),1)
-tabela2[,6]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,7]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=4)),style="B"),zero.policy = TRUE)
-tabela[5,12]<-round(mod.sac$rho,3)
-tabela[5,13]<-round(mod.sac$lambda,3)
-tabela[5,14]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[5,15]<-round(mod.sac$LL,3)
-tabela[5,16]<-round(AIC(mod.sac),1)
-tabela2[,8]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,9]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=nb2listw(knn2nb(knearneigh(parcela_vivas, k=8)),style="B"),zero.policy = TRUE)
-tabela[6,12]<-round(mod.sac$rho,3)
-tabela[6,13]<-round(mod.sac$lambda,3)
-tabela[6,14]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[6,15]<-round(mod.sac$LL,3)
-tabela[6,16]<-round(AIC(mod.sac),1)
-tabela2[,10]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,11]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-mod.sac<-sacsarlm(f,data=parcela_vivas,listw=W,zero.policy = TRUE)
-tabela[7,12]<-round(mod.sac$rho,3)
-tabela[7,13]<-round(mod.sac$lambda,3)
-tabela[7,14]<-round(LR.Sarlm(mod.sac, lm(f, data=parcela_vivas))$p.value[1],3)
-tabela[7,15]<-round(mod.sac$LL,3)
-tabela[7,16]<-round(AIC(mod.sac),1)
-tabela2[,12]<-round(summary(mod.sac)$Coef[,"Estimate"],4)
-tabela2[,13]<-round(summary(mod.sac)$Coef[,"Pr(>|z|)"],4)
-nomes2<-c("Row_normalized","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value","Estimate","p-value");colnames(tabela2)<-nomes2
-tabela2
-
-
-nomes<-c("","Row-normalized","","","","","Inverse Distance","","","","","Binary","","","","");colnames(tabela)<-nomes
-tabela
-#tabela_spatial_sac_A<-tabela
-#tabela_spatial_sac_B<-tabela
-#tabela_spatial_sac_C<-tabela
-#tabela_spatial_sac_D<-tabela
-
-
-
+######
+#Evaluation: 
+#Model results from PNF code and MLC match.
+#AIC, R2 parameters have some differences between the spatial proximity choice/spatial weights
+#Estimates of variables/p-values are mostly similar for all models, with slight variations on the site with less spatial autocorrelation
+#Rho and Lambda are higher in spatial lags/spatial models for greater distances (10 and 15m) on row-normalized weights and the opposite on the idw weights, as expected
+#Best spatial weights are consistently the row-normalized. Best spatial proximity method is varies in Spatial lag/spatial errors models, but is consistent on the SAC - 10m distance
+########
